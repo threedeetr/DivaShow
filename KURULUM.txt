@@ -1,0 +1,26 @@
+DIVA CANLI — TikTok Bağlantı Limiti Koruması
+
+NE DEĞİŞTİ?
+- Canlıya Bağlan düğmesine peş peşe basılması yeni TikTok bağlantısı üretmez.
+- Aynı hesap bağlanmış veya bağlanırken yeni bağlantı açılmaz.
+- Başka hesaba geçmek için önce mevcut bağlantıyı kesmek gerekir.
+- Her yeni bağlantı girişimi arasında en az 45 saniye beklenir.
+- TikTokLive imza servisi RATE_LIMIT hatası verirse sunucu "retry_after"/"reset_time" sürelerine uyar.
+- İmza servisi bekleme süresi bildirmediyse 60 dakika yedek bekleme kuralı uygulanır.
+- Diva arayüzünde bağlantı düğmesi bekleme/bağlı/bağlanıyor durumlarını gösterir.
+- Eski yorumlar yeniden bağlantı sonrası tekrar okutulmaz.
+
+TELEFONDAN KURULUM
+1. Bu ZIP içindeki app.py dosyasını çıkar.
+2. GitHub: https://github.com/threedeetr/DivaShow
+3. Add file > Upload files ile yalnızca app.py dosyasını yükle.
+4. Aynı adlı eski app.py dosyasını değiştir; Commit changes ile kaydet.
+5. Render > diva-canli > Events / Deploys'te yeni dağıtım Live olsun.
+6. Diva sitesini yeniden yükle ve ayarlarını aç.
+
+ÖNEMLİ
+- index.html, diva_ai.py, diva_voice.py, requirements.txt, render.yaml değişmiyor.
+- DIVA_PIN ve GROQ_API_KEY değerlerini silme veya değiştirme.
+- Bu çözüm dış sağlayıcının imza kotasını kaldırmaz. Gerçek 429 hatası devam ediyorsa sağlayıcının bekleme süresine uy.
+- Render yeniden başlatılırsa sunucu belleğindeki bekleme sayacı sıfırlanabilir, ancak TikTok imza sağlayıcısının limiti sıfırlanmaz.
+- Gerçek TikTokLive sunucusunda canlı bağlanma testi yapılmadı; yerel kontrollü testler yapıldı.

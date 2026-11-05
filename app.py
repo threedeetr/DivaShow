@@ -34,6 +34,51 @@ runner: asyncio.Task | None = None
 generation = 0
 connect_lock = asyncio.Lock()
 
+# Protect the shared TikTok signing service: one LIVE socket, no rapid retries.
+MIN_CONNECT_GAP = 45  # seconds between *new* signing attempts
+RATE_LIMIT_FALLBACK = 3600  # only if the provider did not supply a retry time
+last_connect_attempt_at = 0.0
+rate_limit_retry_at = 0.0
+
+
+def seconds_until(timestamp: float) -> int:
+    return max(0, int(timestamp - time.time() + 0.999))
+
+
+def retry_from_provider(exc: Exception) -> float:
+    """Respect the TikTokLive provider's retry_after/reset_time if available."""
+    now = time.time()
+    deadlines = []
+    raw_after = getattr(exc, "retry_after", None)
+    try:
+        if raw_after is not None and float(raw_after) > 0:
+            deadlines.append(now + float(raw_after))
+    except (TypeError, ValueError, OverflowError):
+        pass
+    raw_reset = getattr(exc, "reset_time", None)
+    try:
+        if raw_reset is not None and float(raw_reset) > now:
+            deadlines.append(float(raw_reset))
+    except (TypeError, ValueError, OverflowError):
+        pass
+    return max(deadlines) if deadlines else now + RATE_LIMIT_FALLBACK
+
+
+def is_sign_rate_limit(exc: Exception) -> bool:
+    name = type(exc).__name__
+    detail = str(exc)
+    return (name == "SignatureRateLimitError" or
+            ("RATE_LIMIT" in detail and "TikTokLive" in detail))
+
+
+def connection_status() -> dict:
+    retry = seconds_until(rate_limit_retry_at)
+    gap = seconds_until(last_connect_attempt_at + MIN_CONNECT_GAP)
+    return {**state, "latest_id": sequence,
+            "cooldown_seconds": retry,
+            "reconnect_wait_seconds": max(retry, gap),
+            "can_connect": retry == 0 and gap == 0 and state["phase"] not in ("connecting", "connected")}
+
 
 def authorize(pin: str | None) -> None:
     # Never silently expose a writable API on a public URL.
@@ -60,7 +105,7 @@ def username_of(user: object) -> str:
 
 
 async def live_worker(name: str, my_generation: int) -> None:
-    global client
+    global client, rate_limit_retry_at
     try:
         from TikTokLive import TikTokLiveClient
         from TikTokLive.events import CommentEvent, ConnectEvent, DisconnectEvent, GiftEvent
@@ -120,9 +165,17 @@ async def live_worker(name: str, my_generation: int) -> None:
         raise
     except Exception as exc:
         if my_generation == generation:
-            # Do not leak authentication details / cookies in error strings.
-            message = clean_text(type(exc).__name__ + ": " + str(exc), 180)
-            state.update(phase="error", connected=False, error=message)
+            if is_sign_rate_limit(exc):
+                # Provider limit applies even if the user disconnects. Do not bypass it.
+                rate_limit_retry_at = max(rate_limit_retry_at, retry_from_provider(exc))
+                remaining = seconds_until(rate_limit_retry_at)
+                message = ("TikTok bağlantı limiti doldu. "
+                           f"Yaklaşık {(remaining + 59) // 60} dakika sonra yeniden dene.")
+                state.update(phase="cooldown", connected=False, error=message)
+            else:
+                # Avoid leaking sensitive session/cookie or token details in logs/UI.
+                message = clean_text(type(exc).__name__ + ": " + str(exc), 160)
+                state.update(phase="error", connected=False, error=message)
             add_event("system", text="Bağlantı kurulamadı: " + message)
     finally:
         if my_generation == generation:
@@ -137,9 +190,34 @@ class DemoBody(BaseModel):
     type: Literal["comment", "gift"] = "comment"
 
 
+def enhanced_connection_page(html: str) -> str:
+    """Small client guard in served HTML. Keep the original 6-mimic HTML untouched."""
+    old = "const status=await bridgeRequest('/api/status');"
+    assert html.count(old) == 1, "Cannot locate Diva status UI anchor"
+    html = html.replace(old, old + r"""
+    // Update the button from server truth, not from browser-side guesses.
+    const connectButton=$('bridgeConnect');
+    const held=Number(status.reconnect_wait_seconds||0);
+    const connected=status.phase==='connected';
+    const connecting=status.phase==='connecting';
+    connectButton.disabled=connected||connecting||held>0;
+    connectButton.style.opacity=connectButton.disabled?'0.56':'1';
+    connectButton.style.cursor=connectButton.disabled?'not-allowed':'pointer';
+    connectButton.textContent=connected?'✅ Bağlı':connecting?'⏳ Bağlanıyor…':held>0?'⏳ '+(held<60?held+' sn':Math.ceil(held/60)+' dk')+' bekle':'🔗 Canlıya bağlan';
+""", 1)
+    old = "else if(status.phase==='error')bridgeSetStatus('⚠ '+String(status.error||'Bağlanamadı').slice(0,100),'error');"
+    assert html.count(old) == 1, "Cannot locate Diva error UI anchor"
+    html = html.replace(old, "else if(status.phase==='cooldown')bridgeSetStatus('⏳ '+String(status.error||'TikTok bağlantı limiti').slice(0,130),'error');\n    " + old, 1)
+    old = "try{await bridgeRequest('/api/connect','POST',{username:liveUserInput.value.trim()});bridge.lastId=0;bridge.joined=true;"
+    assert html.count(old) == 1, "Cannot locate Diva connect UI anchor"
+    html = html.replace(old, "try{const connection=await bridgeRequest('/api/connect','POST',{username:liveUserInput.value.trim()});bridge.lastId=Math.max(bridge.lastId,Number(connection.last_event_id)||0);bridge.joined=true;", 1)
+    return html
+
+
 @app.get("/")
 def home():
-    return HTMLResponse(enhanced_ai_page(enhanced_page(str(ROOT / "index.html"))), headers={"Cache-Control": "no-store"})
+    html = enhanced_ai_page(enhanced_page(str(ROOT / "index.html")))
+    return HTMLResponse(enhanced_connection_page(html), headers={"Cache-Control": "no-store"})
 
 
 @app.post("/api/tts")
@@ -162,7 +240,7 @@ def health():
 @app.get("/api/status")
 def api_status(x_diva_pin: str | None = Header(None)):
     authorize(x_diva_pin)
-    return {**state, "latest_id": sequence}
+    return connection_status()
 
 
 @app.get("/api/events")
@@ -177,12 +255,26 @@ def api_events(
 
 @app.post("/api/connect")
 async def api_connect(body: ConnectBody, x_diva_pin: str | None = Header(None)):
-    global runner, client, generation
+    global runner, client, generation, last_connect_attempt_at
     authorize(x_diva_pin)
     name = body.username.strip().removeprefix("@")
     if not USERNAME_RE.fullmatch(name):
         raise HTTPException(422, "Yalnızca TikTok kullanıcı adını yaz (örnek: diva123).")
     async with connect_lock:
+        # A double tap or page reload must not restart a healthy connection.
+        if state["phase"] in ("connecting", "connected") and runner and not runner.done():
+            if state["username"].lower() != name.lower():
+                raise HTTPException(409, "Başka hesap bağlı. Önce Bağlantıyı kes düğmesini kullan.")
+            return {"ok": True, "phase": state["phase"], "username": name,
+                    "already_running": True, "last_event_id": sequence}
+
+        remaining = seconds_until(rate_limit_retry_at)
+        if remaining:
+            raise HTTPException(429, f"TikTok bağlantı limiti: {(remaining+59)//60} dakika sonra tekrar dene.")
+        gap = seconds_until(last_connect_attempt_at + MIN_CONNECT_GAP)
+        if gap:
+            raise HTTPException(429, f"Yeni bağlantı için {gap} saniye bekle. Tekrar tekrar basma.")
+
         generation += 1
         if client is not None:
             try:
@@ -192,9 +284,12 @@ async def api_connect(body: ConnectBody, x_diva_pin: str | None = Header(None)):
         if runner is not None and not runner.done():
             runner.cancel()
         client = None
+        last_connect_attempt_at = time.time()
         state.update(phase="connecting", username=name, connected=False, error="")
+        last_event_id = sequence  # never replay old LIVE comments after reconnect
         runner = asyncio.create_task(live_worker(name, generation))
-    return {"ok": True, "phase": "connecting", "username": name}
+    return {"ok": True, "phase": "connecting", "username": name,
+            "already_running": False, "last_event_id": last_event_id}
 
 
 @app.post("/api/disconnect")
@@ -212,8 +307,11 @@ async def api_disconnect(x_diva_pin: str | None = Header(None)):
             runner.cancel()
         runner = None
         client = None
-        state.update(phase="idle", username="", connected=False, error="")
-    return {"ok": True, "phase": "idle"}
+        if seconds_until(rate_limit_retry_at):
+            state.update(phase="cooldown", username="", connected=False)
+        else:
+            state.update(phase="idle", username="", connected=False, error="")
+    return {"ok": True, "phase": state["phase"]}
 
 
 @app.post("/api/demo")
