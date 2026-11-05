@@ -1,29 +1,11 @@
-DIVA SHOW — Akıllı Katılım Karşılama
+DIVA SHOW — HEDIYELERDE OPUCUK EFEKTI
 
-GITHUB'A GÜNCELLEME (TELEFONDAN)
-1. ZIP dosyasını telefonunda aç ve çıkar.
-2. GitHub'da https://github.com/threedeetr/DivaShow deposunu aç.
-3. YALNIZCA app.py dosyasını depodaki mevcut app.py yerine yükle.
-4. Commit changes yap. Render otomatik dağıtımı aktifse Live olmasını bekle.
-5. Mevcut ayarlarını, PIN'ini, GROQ_API_KEY'ini, index.html'i, diva_ai.py'yi,
-   diva_voice.py'yi ve requirements.txt'yi değiştirme.
+1. https://github.com/threedeetr/DivaShow adresini ac.
+2. Sadece index.html dosyasini eskisiyle degistirip Commit changes yap.
+3. Render Live oldugunda siteyi yenile.
+4. Ayarlar > "Opucuk animasyonunu dene" ile canli yayin acmadan kontrol et.
 
-NASIL ÇALIŞIR?
-- TikTokLive gift event'inden hediye adı/adedi/varsa elmas bilgisini alır.
-- JoinEvent ile yayına yeni katılanı tespit eder; RoomUserSeqEvent.total ile
-  anlık izleyici sayısını kontrol eder.
-- 1-10 izleyici: en az 50 saniyede bir seçili katılanı karşılar.
-- 11-25 izleyici: en az 150 saniyede bir seçili katılanı karşılar.
-- 26 ve üstü: sessiz kalır.
-- TikTok izleyici sayısını henüz iletmediyse veya veri eskidiyse sessiz kalır.
-- Yeni bağlandıktan sonraki ilk 15 saniye karşılamaz.
-- 30 saniyede 5 veya daha fazla katılım bildirimi olduysa karşılamaz.
-- Aynı katılan bir bağlantı oturumunda en fazla bir kez karşılanır.
-- Konuşma sürerken ya da yorum/hediye kuyruğu doluyken araya girmez;
-  öncelik gerçek yorumlara ve hediyelere aittir.
-- Karşılama hazır kısa cümlelerle yapılır; ilave Groq kredisi kullanmaz.
-- Bazı TikTok girişleri JoinEvent olarak hiç gelmeyebilir; karşılama
-  bütün katılımcılar için garanti değildir.
-
-Not: Sistemin ücretsiz imza servisi için RATE_LIMIT sınırlaması aynı kalır.
-KOTA HATASINI bu güncelleme kaldırmaz.
+Gercek TikTok hediye etkinligi geldiginde goz kirpma ve dudaklardan ucan opucuk/kalp efekti gorunur.
+Cok hizli ardisik hediyelerde en fazla 5.5 saniyede bir efekt tetiklenir.
+6 mimik gorseli, karakterin sol elindeki onceki rotus, Groq, Emel Neural ve TikTok baglantisi korunur.
+Bu guncelleme imza sunucusunun TikTok baglanti limitini kaldirmaz.

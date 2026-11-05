@@ -93,6 +93,20 @@ button,input,select{font:inherit}button{cursor:pointer;touch-action:manipulation
 .live-bridge label{display:flex;gap:6px;align-items:center;font-size:12px;margin:10px 0;color:#ffe3ee}
 .live-bridge label input{accent-color:#ff79b7}
 @media(max-height:690px){.settings-card{max-height:92vh}}
+
+/* Hediyeler icin Diva'nin dudaklarindan ucan opucukler. 6 orijinal yuz gorseline dokunmaz. */
+.diva-kiss-particle{position:absolute;left:50%;top:30%;z-index:7;pointer-events:none;
+  font-family:system-ui,'Apple Color Emoji','Segoe UI Emoji',sans-serif;font-size:clamp(19px,5.2vw,30px);
+  line-height:1;white-space:nowrap;opacity:0;filter:drop-shadow(0 2px 5px rgba(109,0,78,.6));
+  animation:diva-kiss-fly 1.7s cubic-bezier(.18,.64,.25,1) var(--kiss-delay,0ms) forwards;
+  will-change:transform,opacity}
+@keyframes diva-kiss-fly{
+  0%{transform:translate(-50%,-50%) scale(.25) rotate(-15deg);opacity:0}
+  12%{transform:translate(-50%,-50%) scale(1.1) rotate(0deg);opacity:1}
+  30%{opacity:1}
+  100%{transform:translate(calc(-50% + var(--kiss-x,0px)),calc(-50% + var(--kiss-y,-130px))) scale(1.45) rotate(var(--kiss-spin,20deg));opacity:0}
+}
+@media (prefers-reduced-motion:reduce){.diva-kiss-particle{animation-duration:.5s}}
 </style>
 
 <style id="diva-show-header-style">
@@ -250,7 +264,7 @@ button,input,select{font:inherit}button{cursor:pointer;touch-action:manipulation
      <p class="voice-help"><strong>Not:</strong> Sesler telefonunda yüklü olanlarla sınırlıdır. Kadın adı taşıyan sesler varsa üstte gösterilir; adından cinsiyet kesin belirlenemez. Yeni Türkçe sesleri Android'in <strong>Metin okuma / Metinden sese</strong> ayarlarından ücretsiz yükleyebilirsin. Tarayıcı yeni yüklenen sesleri görmek için yeniden açılabilir.</p>
    </div>
    <div class="field"><label for="showSpeech">Konuşma baloncuğu</label><input type="checkbox" id="showSpeech" checked/></div>
-   <div class="expression-test"><span>🎭 Diva mimikleri · Sabit ten, tek kafa</span><button type="button" id="mimicDemoBtn" class="mimic-demo-btn">▶ 5 saniye konuşma animasyonu dene</button><div class="expression-buttons"><button type="button" data-expression="0">😌 Normal</button><button type="button" data-expression="1">💋 Konuş</button><button type="button" data-expression="2">😮 Bağır</button><button type="button" data-expression="3">😲 Şaşır</button><button type="button" data-expression="4">😘 Göz kırp</button><button type="button" data-expression="5">😡 Sinirlen</button></div></div>
+   <div class="expression-test"><span>🎭 Diva mimikleri · Sabit ten, tek kafa</span><button type="button" id="mimicDemoBtn" class="mimic-demo-btn">▶ 5 saniye konuşma animasyonu dene</button><button type="button" id="kissPreviewBtn" class="mimic-demo-btn">💋 Öpücük animasyonunu dene</button><div class="expression-buttons"><button type="button" data-expression="0">😌 Normal</button><button type="button" data-expression="1">💋 Konuş</button><button type="button" data-expression="2">😮 Bağır</button><button type="button" data-expression="3">😲 Şaşır</button><button type="button" data-expression="4">😘 Göz kırp</button><button type="button" data-expression="5">😡 Sinirlen</button></div></div>
    <p class="muted">Bu sürüm <b>indirildiğinde internetsiz çalışan bir demo</b>. Render üzerine kurulduğunda TikTok bağlantı paneli açılabilir. Mesajları sen girersin veya “Yorum dene” ile örnek üretirsin. Diva'nın aynı yüz ve ten rengi üzerindeki altı mimik karesi konuşurken sırayla değişir. Ağız hareketi yaklaşık zamanlamayla çalışır; ses dalgasını algılamaz. Cevaplar hazır esprilerden oluşur, canlı TikTok bağlantısı için ayrıca ücretsiz bulut sunucusu gerekir; gerçek yapay zekâ cevapları henüz yoktur. Ses stüdyosunda ücretsiz cihaz seslerini ve konuşma tarzını değiştirebilirsin; kalite telefonun ses motoruna bağlıdır.</p>
    <p class="mini-note"><b>Telefonda yayın:</b> TikTok → CANLI → Mobil Oyun / Ekran Paylaşımı → bu sayfayı aç. İlk ses için “Sesi aç” düğmesine dokun. TikTok'un ekran paylaşımı ve uygulama sesi desteği telefon modeline göre değişebilir.</p>
  </div></div>
@@ -310,6 +324,38 @@ function endTalk(){if(diva.classList.contains('talking') && Date.now()-speechSta
 function showSpeech(txt){speechText.textContent=txt;speechBox.classList.toggle('show',$('showSpeech').checked);clearTimeout(clearSpeechTimer);clearSpeechTimer=setTimeout(()=>speechBox.classList.remove('show'),14500)}
 function addChat(who,txt,isDiva=false){const d=document.createElement('div');d.className='bubble'+(isDiva?' diva':'');const n=document.createElement('strong');n.textContent=who+': ';d.append(n,document.createTextNode(txt));chat.append(d);while(chat.querySelectorAll('.bubble').length>3)chat.querySelector('.bubble').remove();}
 function burst(amount){const colors=['#fff6b1','#ff5cb1','#ffffff','#bdf9ff','#ffb13d'];const root=$('confetti');for(let i=0;i<amount;i++){const el=document.createElement('i');el.className='piece';el.style.setProperty('--duration',(2+Math.random()*1.9)+'s');el.style.setProperty('--delay',(Math.random()*.5)+'s');el.style.setProperty('--left',(Math.random()*100)+'%');el.style.setProperty('--drift',((Math.random()-.5)*100)+'px');el.style.setProperty('--color',pick(colors));root.appendChild(el);setTimeout(()=>el.remove(),4500)}}
+// Emote in the browser, not a new TikTok connection or paid API request.
+let lastKissAt=0;
+function divaBlowKiss(force=false){
+  const now=Date.now();
+  // Gift streaks must not fill the screen or obscure live comments.
+  if(!force && now-lastKissAt<5500)return false;
+  lastKissAt=now;
+  const particles=[
+    {emoji:'💋',x:'-14px',y:'-90px',spin:'-18deg',delay:'0ms'},
+    {emoji:'💗',x:'-73px',y:'-150px',spin:'-30deg',delay:'90ms'},
+    {emoji:'💕',x:'36px',y:'-178px',spin:'26deg',delay:'165ms'},
+    {emoji:'💖',x:'85px',y:'-124px',spin:'34deg',delay:'235ms'}
+  ];
+  for(const p of particles){
+    const span=document.createElement('span');
+    span.className='diva-kiss-particle';span.textContent=p.emoji;
+    span.setAttribute('aria-hidden','true');
+    span.style.setProperty('--kiss-x',p.x);
+    span.style.setProperty('--kiss-y',p.y);
+    span.style.setProperty('--kiss-spin',p.spin);
+    span.style.setProperty('--kiss-delay',p.delay);
+    diva.appendChild(span);
+    setTimeout(()=>span.remove(),2300);
+  }
+  // Use the existing wink frame, not a modified face asset.
+  if(Date.now()>=shockUntil){
+    winkUntil=Math.max(winkUntil,now+850);
+    setFace(4);
+    setTimeout(()=>{if(!diva.classList.contains('talking')&&!lipTimer&&currentFace===4)setFace(0)},1000);
+  }
+  return true;
+}
 function speak(txt, mood='normal'){
  speechStartedAt=Date.now();clearTimeout(minSpeechTimer);
  lastReply=txt;lastSpeakTime=Date.now();showSpeech(txt);addChat('👑 Diva',txt,true);
@@ -347,7 +393,7 @@ const giftReplies={
  crown:['TAAÇ MI? Ben zaten kraliçeydim, belge gelmiş oldu!','Aşkolar, yeni tacım geldi. Saygıyla eğilin!','Kraliyet bütçemiz yükseliyor, antenlerim alkışlıyor!'],
  big:['ANAM! KİM ATTI LAN ONU? AŞKIM BAYILACAĞIM!','KIZ ŞU HEDİYEYE BAK! ŞU AN ŞALIM ALEV ALDI!','Durdurun yayını, bir aristokrat aramızda! Çığlık atıyorum!']
 };
-function gift(type){const arr=giftReplies[type];if(!arr)return;let line=pick(arr);if(type==='big'&&$('argo').value==='soft')line=line.replace('LAN ','').replace('KIZ ','AY ');speak(line,type==='big'||type==='crown'?'celebrate':type==='heart'?'wink':'normal');if(type==='big')burst(65);else if(type==='crown')burst(26);}
+function gift(type){const arr=giftReplies[type];if(!arr)return;let line=pick(arr);if(type==='big'&&$('argo').value==='soft')line=line.replace('LAN ','').replace('KIZ ','AY ');speak(line,type==='big'||type==='crown'?'celebrate':type==='heart'?'wink':'normal');divaBlowKiss(true);if(type==='big')burst(65);else if(type==='crown')burst(26);}
 for(const b of document.querySelectorAll('[data-gift]'))b.addEventListener('click',()=>gift(b.dataset.gift));
 $('msgForm').addEventListener('submit',(e)=>{e.preventDefault();const raw=$('message').value.trim();if(!raw){toast('Önce bir yorum yaz aşkım!');return}const m=raw.match(/^@?([\p{L}\p{N}_.-]{2,24})\s*:\s*(.+)$/u);const username=m?m[1]:'İzleyici';const msg=m?m[2]:raw;addChat(username,msg);speak(react(msg,username),/(salak|saçma|laf sok|kızdır|sinir|uyuz|aptal)/i.test(msg)?'angry':/(seviyorum|güzelsin|çok tatlı|aşkım|öpücük)/i.test(msg)?'wink':'normal');$('message').value='';$('message').blur();});
 const samples=[['Seda_34','Diva nasılsın?'],['MertCan','Bugün çok güzelsin!'],['PatiKralı','Bize laf sok!'],['Esra','Diva kaç yaşındasın?'],['Buse','Bana selam verir misin?'],['Fırat','Sence aşk nedir?']];
@@ -387,6 +433,7 @@ $('voiceTestBtn').addEventListener('click',()=>{
 $('voiceBtn').addEventListener('click',()=>{voiceEnabled=true;window.speechSynthesis?.cancel();speak('Aşkolar, Diva yayında! Sesim geliyorsa bir kalp bırakın!');toast('Sesi duymazsan telefonun medya sesini aç.');});
 $('mimicDemoBtn').addEventListener('click',()=>{speechSerial++;if('speechSynthesis' in window)window.speechSynthesis.cancel();clearTimeout(speechStopTimer);clearTimeout(minSpeechTimer);$('settings').classList.remove('open');speechStartedAt=Date.now();shockUntil=angryUntil=winkUntil=0;diva.classList.add('talking');setFace(1);startLipAnimation();showSpeech('Aşkolar, antenlerimle konuşuyorum!');clearTimeout(previewTimer);previewTimer=setTimeout(()=>{diva.classList.remove('talking');stopLipAnimation()},5200);});
 
+$('kissPreviewBtn').addEventListener('click',()=>{$('settings').classList.remove('open');divaBlowKiss(true);});
 $('settingsBtn').addEventListener('click',()=>{$('settings').classList.add('open');loadVoices()});$('closeSettings').addEventListener('click',()=>{$('settings').classList.remove('open')});$('settings').addEventListener('click',e=>{if(e.target===$('settings'))$('settings').classList.remove('open')});$('showSpeech').addEventListener('change',()=>{if(!$('showSpeech').checked)speechBox.classList.remove('show')});
 for(const b of document.querySelectorAll('[data-expression]'))b.addEventListener('click',()=>{
   speechSerial++;if(window.speechSynthesis)window.speechSynthesis.cancel();clearTimeout(speechStopTimer);clearTimeout(minSpeechTimer);diva.classList.remove('talking');stopLipAnimation();
@@ -465,6 +512,7 @@ function bridgeHandleEvent(item){
       isCrown?`${user}, taç geldi! Zaten divaydım, şimdi resmen tescillendi!`:
       `${user}, ${count} tane ${name} göndermişsin! Aşkım çok teşekkür ederim, Diva'nın kalbi pır pır!`;
     bridgeOffer({text,mood:isBig||isCrown?'celebrate':isHeart?'wink':'normal'},1);
+    divaBlowKiss(); // Gercek TikTok hediyesi: gorunur opucuk + goz kirpma
     if(isBig)burst(55);
   }
 }
