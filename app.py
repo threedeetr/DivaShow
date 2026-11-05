@@ -104,14 +104,30 @@ def username_of(user: object) -> str:
     return clean_text(getattr(user, "unique_id", "") or getattr(user, "nickname", "") or "Izleyici", 34)
 
 
+def welcome_name(user: object) -> str:
+    """A short pronounceable display name; never read arbitrary profile text aloud."""
+    for source in (getattr(user, "nickname", ""), getattr(user, "unique_id", "")):
+        raw = clean_text(source, 48)
+        value = re.sub(r"[^A-Za-z0-9ÇĞİÖŞÜçğıöşü ._-]", "", raw)
+        value = re.sub(r"\s+", " ", value).strip(" ._-")
+        if 2 <= len(value) <= 22 and re.search(r"[A-Za-zÇĞİÖŞÜçğıöşü]{2,}", value):
+            return value
+    return ""
+
+
 async def live_worker(name: str, my_generation: int) -> None:
     global client, rate_limit_retry_at
     try:
         from TikTokLive import TikTokLiveClient
-        from TikTokLive.events import CommentEvent, ConnectEvent, DisconnectEvent, GiftEvent
+        from TikTokLive.events import CommentEvent, ConnectEvent, DisconnectEvent, GiftEvent, JoinEvent, RoomUserSeqEvent
 
         live = TikTokLiveClient(unique_id=name)
         client = live
+
+        # Per-LIVE welcome controls. Never confuse cumulative joins with current viewers.
+        welcome = {"viewers": None, "viewer_at": 0.0, "last_at": 0.0, "started": time.monotonic()}
+        welcomed: set[str] = set()
+        recent_joins: deque[float] = deque(maxlen=30)
 
         @live.on(ConnectEvent)
         async def on_connect(_event: object) -> None:
@@ -132,6 +148,51 @@ async def live_worker(name: str, my_generation: int) -> None:
             message = clean_text(getattr(event, "comment", ""), 240)
             if message:
                 add_event("comment", username=username_of(getattr(event, "user", None)), text=message)
+
+        @live.on(RoomUserSeqEvent)
+        async def on_viewer_count(event: object) -> None:
+            if my_generation != generation:
+                return
+            try:
+                count = int(getattr(event, "total", None))
+            except (TypeError, ValueError, OverflowError):
+                return
+            if 0 < count <= 100000:
+                welcome["viewers"] = count
+                welcome["viewer_at"] = time.monotonic()
+                state["viewer_count"] = count
+
+        @live.on(JoinEvent)
+        async def on_join(event: object) -> None:
+            if my_generation != generation or state["phase"] != "connected":
+                return
+            now = time.monotonic()
+            recent_joins.append(now)
+            while recent_joins and now - recent_joins[0] > 30:
+                recent_joins.popleft()
+            viewers = welcome["viewers"]
+            # If the count is unavailable/stale, don't assume a small room.
+            if (viewers is None or now - welcome["viewer_at"] > 100
+                    or viewers > 25 or now - welcome["started"] < 15):
+                return
+            # A crowded entry burst should not trigger a stream of greetings.
+            if len(recent_joins) >= 5:
+                return
+            interval = 50 if viewers <= 10 else 150
+            if now - welcome["last_at"] < interval:
+                return
+            user = getattr(event, "user", None)
+            if user is None:
+                return
+            uid = clean_text(getattr(user, "unique_id", ""), 40).casefold()
+            if not uid or uid in welcomed:
+                return
+            display = welcome_name(user)
+            if not display:
+                return
+            welcomed.add(uid)
+            welcome["last_at"] = now
+            add_event("welcome", username=display, viewer_count=viewers)
 
         @live.on(GiftEvent)
         async def on_gift(event: object) -> None:
@@ -211,6 +272,33 @@ def enhanced_connection_page(html: str) -> str:
     old = "try{await bridgeRequest('/api/connect','POST',{username:liveUserInput.value.trim()});bridge.lastId=0;bridge.joined=true;"
     assert html.count(old) == 1, "Cannot locate Diva connect UI anchor"
     html = html.replace(old, "try{const connection=await bridgeRequest('/api/connect','POST',{username:liveUserInput.value.trim()});bridge.lastId=Math.max(bridge.lastId,Number(connection.last_event_id)||0);bridge.joined=true;", 1)
+    # Greet actual join events only when the viewer count is small and reliable.
+    old = "function bridgeHandleEvent(item){\n  if(item.type==='system')"
+    assert html.count(old) == 1, "Missing welcome event handler anchor"
+    html = html.replace(old, """function bridgeHandleEvent(item){
+  if(item.type==='welcome'){
+    if(Date.now() - (Number(item.at)||0)*1000 > 22000)return;
+    const who=String(item.username||'').trim().slice(0,24);
+    if(!who)return;
+    const options=[`Hoş geldin ${who}! Pembe krallığa buyur aşkım!`,
+      `${who}, sefalar getirdin! Diva seni gördü!`,
+      `Aaaa ${who} gelmiş! Hoş geldin şekerim!`];
+    bridgeOffer({text:options[Math.floor(Math.random()*options.length)],mood:'wink',kind:'welcome'});
+    return;
+  }
+  if(item.type==='system')""", 1)
+    old = "function bridgeOffer(item,priority=0){"
+    assert html.count(old) == 1, "Missing queue anchor"
+    html = html.replace(old, """function bridgeOffer(item,priority=0){
+  // A greeting never interrupts comments, gifts, or active speech.
+  if(item.kind==='welcome'){
+    if(bridge.queue.length || bridge.aiPending || diva.classList.contains('talking'))return;
+  } else {
+    bridge.queue=bridge.queue.filter(e=>e.kind!=='welcome');
+  }""", 1)
+    old = "const reply=await divaAskAI(item.source,item.username,item.kind||'comment',item.text);"
+    assert html.count(old) == 1, "Missing AI queue anchor"
+    html = html.replace(old, "const reply=item.kind==='welcome' ? item.text : await divaAskAI(item.source,item.username,item.kind||'comment',item.text);", 1)
     return html
 
 
@@ -285,7 +373,7 @@ async def api_connect(body: ConnectBody, x_diva_pin: str | None = Header(None)):
             runner.cancel()
         client = None
         last_connect_attempt_at = time.time()
-        state.update(phase="connecting", username=name, connected=False, error="")
+        state.update(phase="connecting", username=name, connected=False, error="", viewer_count=None)
         last_event_id = sequence  # never replay old LIVE comments after reconnect
         runner = asyncio.create_task(live_worker(name, generation))
     return {"ok": True, "phase": "connecting", "username": name,

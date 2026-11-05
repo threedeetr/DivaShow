@@ -1,58 +1,29 @@
-DİVA CANLI — GERÇEK TİKTOK YORUM / HEDİYE BAĞLANTISI
-Telefonla kurulum / ücretsiz deneme
+DIVA SHOW — Akıllı Katılım Karşılama
 
-Bu pakette:
-- index.html : Konuşan Diva sayfası, 6 mimik, Ses Stüdyosu, TikTok bağlantı ayarları
-- app.py : TikTokLive olaylarını yakalayan Python servisi
-- requirements.txt : Ücretsiz yazılım bağımlılıkları
-- render.yaml : Render ücretsiz sunucu ayarları (isteğe bağlı)
+GITHUB'A GÜNCELLEME (TELEFONDAN)
+1. ZIP dosyasını telefonunda aç ve çıkar.
+2. GitHub'da https://github.com/threedeetr/DivaShow deposunu aç.
+3. YALNIZCA app.py dosyasını depodaki mevcut app.py yerine yükle.
+4. Commit changes yap. Render otomatik dağıtımı aktifse Live olmasını bekle.
+5. Mevcut ayarlarını, PIN'ini, GROQ_API_KEY'ini, index.html'i, diva_ai.py'yi,
+   diva_voice.py'yi ve requirements.txt'yi değiştirme.
 
-ÖNEMLİ
-Bu ZIP, çalışır halde tasarlanmış bir projedir; yalnızca ZIP indirmek gerçek TikTok bağlantısı sağlamaz.
-Gerçek bağlantı için GitHub hesabın ve Render'da ücretsiz web hizmeti oluşturman gerekir.
-Ayrıca yayının gerçekten canlı olması gerekir. TikTokLive RESMÎ bir TikTok API'si değildir:
-TikTok değişiklikleri, ağ kısıtları ve ücretsiz host kısıtları sebebiyle bağlantı her zaman çalışmayabilir.
+NASIL ÇALIŞIR?
+- TikTokLive gift event'inden hediye adı/adedi/varsa elmas bilgisini alır.
+- JoinEvent ile yayına yeni katılanı tespit eder; RoomUserSeqEvent.total ile
+  anlık izleyici sayısını kontrol eder.
+- 1-10 izleyici: en az 50 saniyede bir seçili katılanı karşılar.
+- 11-25 izleyici: en az 150 saniyede bir seçili katılanı karşılar.
+- 26 ve üstü: sessiz kalır.
+- TikTok izleyici sayısını henüz iletmediyse veya veri eskidiyse sessiz kalır.
+- Yeni bağlandıktan sonraki ilk 15 saniye karşılamaz.
+- 30 saniyede 5 veya daha fazla katılım bildirimi olduysa karşılamaz.
+- Aynı katılan bir bağlantı oturumunda en fazla bir kez karşılanır.
+- Konuşma sürerken ya da yorum/hediye kuyruğu doluyken araya girmez;
+  öncelik gerçek yorumlara ve hediyelere aittir.
+- Karşılama hazır kısa cümlelerle yapılır; ilave Groq kredisi kullanmaz.
+- Bazı TikTok girişleri JoinEvent olarak hiç gelmeyebilir; karşılama
+  bütün katılımcılar için garanti değildir.
 
-SADECE TELEFONLA KURULUM:
-1. ZIP dosyasını telefonun Dosyalar uygulamasından aç / çıkar.
-2. Telefonda tarayıcıyla https://github.com/new adresine git. Ücretsiz, tercihen özel (private) bir repo oluştur.
-3. Repo içinde 'Add file' > 'Upload files' ile şu dört dosyayı aynı kök dizine yükle:
-   index.html, app.py, requirements.txt, render.yaml
-   GitHub mobil görünümündeysen tarayıcının 'Masaüstü site' seçeneğini açabilirsin.
-4. https://dashboard.render.com/ adresinde hesap aç. GitHub hesabını bağla.
-5. 'New' > 'Web Service' seç, bu repo'yu seç.
-   Instance type: FREE (ücretsiz plan varsa)
-   Build command: pip install -r requirements.txt
-   Start command: uvicorn app:app --host 0.0.0.0 --port $PORT
-6. Environment bölümüne şu değişkeni koy:
-   Key: DIVA_PIN
-   Value: senin seçeceğin, kolay tahmin edilemeyen uzun bir şifre
-   Bu şifreyi ASLA GitHub koduna veya ekran görüntüne koyma.
-7. Deploy et. Render'ın verdiği https://...onrender.com adresini Chrome'da aç.
-8. ⚙ Ayarlar > 📡 TikTok Canlı Bağlantısı bölümünden:
-   - TikTok kullanıcı adını gir (başında @ olabilir)
-   - DIVA_PIN şifreni gir
-   - '🧪 Test yorumu' ve '🎁 Test hediyesi' düğmelerine bas.
-9. TikTok CANLI yayınını açtıktan sonra '🔗 Canlıya bağlan' düğmesine bas.
-   '● TikTok bağlı: @...' görünürse yorumlar ve hediyeler gelmeye başlayabilir.
-
-Nasıl çalışır?
-- Yorumlar ekrana yansır; uygun aralıklarla Diva'nın hazır komik cevapları seslendirilir.
-- Hediyeler ayrı öncelik sırasıyla ve gönderen adıyla seslendirilir.
-- 6 mimik, Türkçe ses seçenekleri ve Ses Stüdyosu korunmuştur.
-- Bir kişi aynı anda çok mesaj yazarsa spam önlenir; anlık bütün yorumların cevaplanması amaçlanmaz.
-- Gerçek büyük hediye değerlendirmesi yalnızca hediye bilgisi (diamond_count) geldiğinde yapılır.
-
-Sınırlar:
-- Bu sürümde gerçek dil modeli / ChatGPT API entegrasyonu YOK; cevaplar hazır kural sisteminden gelir.
-- TikTokLive, TikTok'un resmî / garantili API'si değildir.
-- Render FREE hizmeti boşta uyuyabilir, yeniden başlayabilir veya kotaları nedeniyle durabilir.
-- Telefonda ekran paylaşımı sırasında tarayıcı sesinin yayına gidip gitmediği cihaz ve TikTok ayarlarına bağlıdır.
-- Bağlantı için kullanacağın yeni adresi paylaşmadan önce 'DIVA_PIN' ayarlamış olmalısın.
-- Yayındayken yönetici kodunu ekranda gösterme.
-
-Önce TEST yorumu ve TEST hediyesi dene; bunlar TikTok'a gerçekten bağlanmadan sunucuyu sınar.
-
-Referans:
-- TikTokLive: https://pypi.org/project/TikTokLive/
-- Render ücretsiz plan şartları: https://render.com/docs/free
+Not: Sistemin ücretsiz imza servisi için RATE_LIMIT sınırlaması aynı kalır.
+KOTA HATASINI bu güncelleme kaldırmaz.
