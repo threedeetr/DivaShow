@@ -1,0 +1,1 @@
+Diva Show arayuz guncellemesi: GitHub'daki index.html dosyasini bununla degistirin. app.py, diva_ai.py ve diva_voice.py dosyalarina dokunmayin.
