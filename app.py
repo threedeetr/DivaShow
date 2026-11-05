@@ -15,8 +15,9 @@ from pathlib import Path
 from typing import Literal
 
 from fastapi import FastAPI, Header, HTTPException, Query
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, HTMLResponse
 from pydantic import BaseModel, Field
+from diva_voice import SpeechRequest, synthesize_emel, enhanced_page
 
 ROOT = Path(__file__).resolve().parent
 APP_PIN = os.environ.get("DIVA_PIN", "").strip()
@@ -137,7 +138,13 @@ class DemoBody(BaseModel):
 
 @app.get("/")
 def home():
-    return FileResponse(ROOT / "index.html", media_type="text/html; charset=utf-8", headers={"Cache-Control": "no-cache"})
+    return HTMLResponse(enhanced_page(str(ROOT / "index.html")), headers={"Cache-Control": "no-store"})
+
+
+@app.post("/api/tts")
+async def tts(body: SpeechRequest, x_diva_pin: str | None = Header(None)):
+    authorize(x_diva_pin)
+    return await synthesize_emel(body)
 
 
 @app.get("/health")
