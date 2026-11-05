@@ -18,6 +18,7 @@ from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.responses import FileResponse, JSONResponse, HTMLResponse
 from pydantic import BaseModel, Field
 from diva_voice import SpeechRequest, synthesize_emel, enhanced_page
+from diva_ai import AiReplyRequest, generate_ai_reply, enhanced_ai_page
 
 ROOT = Path(__file__).resolve().parent
 APP_PIN = os.environ.get("DIVA_PIN", "").strip()
@@ -138,13 +139,19 @@ class DemoBody(BaseModel):
 
 @app.get("/")
 def home():
-    return HTMLResponse(enhanced_page(str(ROOT / "index.html")), headers={"Cache-Control": "no-store"})
+    return HTMLResponse(enhanced_ai_page(enhanced_page(str(ROOT / "index.html"))), headers={"Cache-Control": "no-store"})
 
 
 @app.post("/api/tts")
 async def tts(body: SpeechRequest, x_diva_pin: str | None = Header(None)):
     authorize(x_diva_pin)
     return await synthesize_emel(body)
+
+
+@app.post("/api/ai/reply")
+async def ai_reply(body: AiReplyRequest, x_diva_pin: str | None = Header(None)):
+    authorize(x_diva_pin)
+    return await generate_ai_reply(body)
 
 
 @app.get("/health")

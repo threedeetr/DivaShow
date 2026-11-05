@@ -1,0 +1,38 @@
+DİVA CANLI — ÜCRETSİZ KOTA İÇİNDE YAPAY ZEKÂ
+
+Mevcut çalışan DivaShow projesine eklenecek sadece 3 dosya vardır:
+1. app.py (mevcut dosyanın YENİ sürümü)
+2. diva_ai.py (YENİ dosya)
+3. requirements.txt (mevcut dosyanın YENİ sürümü)
+
+ÖNEMLİ: index.html, diva_voice.py, render.yaml ve DIVA_PIN değerini DEĞİŞTİRME.
+
+TELEFON İLE:
+1) https://console.groq.com/keys adresinde ücretsiz Groq hesabı aç (Free Plan).
+2) API Keys > Create API Key ile anahtar üret. Güvenli sakla.
+3) Render Dashboard > diva-canli > Environment > Add Environment Variable:
+     Key: GROQ_API_KEY
+     Value: biraz önce oluşturduğun anahtar
+   Anahtarı GitHub dosyalarına, TikTok yayınına veya ChatGPT'ye ASLA yazma.
+4) GitHub > https://github.com/threedeetr/DivaShow
+   > Add file > Upload files > paketteki app.py, diva_ai.py, requirements.txt dosyalarını seç.
+   Mevcut app.py ve requirements.txt üzerine güncellemeyi onayla ve Commit changes yap.
+5) Render'da Deploy > Deploy latest commit (otomatik değilse). Durum Live olsun.
+6) Render'da Diva sitesini aç > ayarlar > TikTok'a bağlan > Yapay zekâ cevapları açık.
+7) “Yapay zekâyı dene” düğmesine bas, sonra gerçek bir TikTok yorumunu dene.
+
+NASIL ÇALIŞIR?
+- Yorumlar ve hediyeler ücretsiz Groq modeline gönderilir, özgün Türkçe cevap alınır.
+- Emel Neural cevabı okur; 6 mimik devam eder.
+- GROQ_API_KEY sunucuda gizlidir; sitede veya ZIP içinde bulunmaz.
+- Kota, bağlantı veya zaman aşımı olursa önceki hazır espriler konuşulur.
+- Ayarlardan yapay zekâ kapatılabilir.
+- İzleyici başına son 3 soru-yanıt sadece RAM'de tutulur; Render yeniden başlayınca silinir.
+
+ÜCRET VE SINIRLAR:
+- Groq Free Plan kullan. Ücretli plana yükseltme.
+- Varsayılan model openai/gpt-oss-20b. Ücretsiz kota değişebilir.
+- Bizim eklediğimiz sınır günde 700, dakikada 16 AI isteğidir.
+- Render Free'in kendi sınırları vardır; yüksek kullanımda kısıtlanabilir.
+- Groq'a yorumlar ve kullanıcı adları gönderilir; gizli veriler paylaşılmamalıdır.
+- edge-tts resmî, garantili ücretsiz TTS API'si değildir.
