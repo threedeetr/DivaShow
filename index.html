@@ -4,8 +4,8 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#9f195f" />
-<meta name="description" content="Diva Hamam Böceği, altı ifadeli ve tek kafalı konuşan mobil canlı yayın demosu." />
-<title>Diva CANLI • TikTok Bağlantılı • 6 Mimik + Ücretsiz Ses Stüdyosu</title>
+<meta name="description" content="Diva Show — Hamam Böceklerinin Divası. Türkçe sesli, yapay zekâ destekli TikTok canlı yayın gösterisi." />
+<title>Diva Show • Hamam Böceklerinin Divası</title>
 <style>
 :root{--pink:#ff3b9b;--rose:#ff89c8;--light:#fff2f7;--gold:#fff0a6;--wine:#6c1645;--deep:#450d32;--glass:rgba(95,13,58,.61)}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -94,14 +94,35 @@ button,input,select{font:inherit}button{cursor:pointer;touch-action:manipulation
 .live-bridge label input{accent-color:#ff79b7}
 @media(max-height:690px){.settings-card{max-height:92vh}}
 </style>
+
+<style id="diva-show-header-style">
+/* Diva Show: Brand + responsive controls for small Android screens. */
+.header .brand{padding:9px 10px;gap:6px}
+.header .brand-wordmark{min-width:0;flex:1}
+.header .brand-title{font-size:clamp(18px,4.9vw,27px)}
+.header .brand-sub{font-size:clamp(7px,1.84vw,9px);letter-spacing:clamp(0px,.15vw,.55px);font-weight:800;white-space:nowrap;line-height:1.4;opacity:.95}
+.header .crown{flex:0 0 auto}
+.header .fullscreen-btn{flex:0 0 40px;box-shadow:inset 0 1px 0 #fff5,0 3px 13px #0002}
+.header #settingsBtn{flex:0 0 40px}
+.fullscreen-btn .shrink-icon{display:none}
+.fullscreen-btn.is-fullscreen{background:#c7257d;border-color:#ffe7ab}
+.fullscreen-btn.is-fullscreen .expand-icon{display:none}
+.fullscreen-btn.is-fullscreen .shrink-icon{display:block}
+.fullscreen-hint{position:absolute;z-index:130;top:75px;left:15px;right:15px;border:1px solid #fff9;border-radius:12px;background:rgba(63,10,46,.96);color:white;font-size:13px;font-weight:750;padding:10px 14px;box-shadow:0 8px 30px #21051e80;text-align:center}
+.fullscreen-hint[hidden]{display:none}
+@media(max-width:380px){.header{left:8px;right:8px;gap:6px}.header .brand{padding:8px 6px;gap:4px}.header .crown{font-size:22px}.header .brand-title{font-size:clamp(16px,4.75vw,20px)}.header .brand-sub{font-size:clamp(6.6px,1.85vw,7.5px);letter-spacing:0}.header .iconbtn{height:36px;width:36px}.header .fullscreen-btn,.header #settingsBtn{flex-basis:36px}}
+</style>
 </head>
 <body>
 <div id="app">
  <div class="curtain left"></div><div class="curtain right"></div><div class="halo"></div>
  <div class="stage-stars" aria-hidden="true"><span class="star s1">✦</span><span class="star s2">✧</span><span class="star s3">✦</span><span class="star s4">✧</span></div>
  <header class="header">
-   <div class="brand"><div class="crown">👑</div><div><div class="brand-title"><em>Diva</em> CANLI</div><div class="brand-sub">HAMAM BÖCEĞİ SHOW</div></div></div>
-   <div class="live-pill"><span class="live-dot"></span> DEMO</div>
+   <div class="brand"><div class="crown">👑</div><div class="brand-wordmark"><div class="brand-title"><em>Diva</em> Show</div><div class="brand-sub">HAMAM BÖCEKLERİNİN DİVASI</div></div></div>
+   <button class="iconbtn fullscreen-btn" type="button" id="fullscreenBtn" aria-label="Tam ekrana geç" title="Tam ekran" aria-pressed="false">
+     <svg class="expand-icon" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3"/></svg>
+     <svg class="shrink-icon" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3v3a2 2 0 0 1-2 2H3M16 3v3a2 2 0 0 0 2 2h3M3 16h3a2 2 0 0 1 2 2v3M21 16h-3a2 2 0 0 0-2 2v3"/></svg>
+   </button>
    <button class="iconbtn" id="settingsBtn" aria-label="Ayarlar">⚙</button>
  </header>
  <div class="status" id="liveStatus"><span class="led"></span> TikTok sohbeti bağlı değil</div>
@@ -295,7 +316,6 @@ for(const b of document.querySelectorAll('[data-expression]'))b.addEventListener
 const bridge={lastId:0,joined:false,lastPollAt:0,queue:[],nextAt:0,busy:false,statusTimer:null};
 const livePinInput=$('livePin'), liveUserInput=$('liveUsername'), bridgeLabel=$('bridgeStatus');
 const bridgeSetStatus=(line,kind='idle')=>{bridgeLabel.textContent=line;const flag=$('liveStatus');flag.innerHTML='';const dot=document.createElement('span');dot.className='led';flag.append(dot,document.createTextNode(' '+line));dot.style.background=kind==='on'?'#7dfa9b':kind==='error'?'#ff8585':'#ffd56b';
-  const badge=document.querySelector('.live-pill');if(badge)badge.lastChild.textContent=kind==='on'?' CANLI': ' DEMO';
   $('sceneMode').textContent=kind==='on'?'Gerçek canlıya bağlı':'Yorum / Hediye demosu';
   $('chatLabel').textContent=kind==='on'?'💬 TİKTOK SOHBETİ':'💬 ÖRNEK SOHBET';};
 function bridgeHeaders(){return {'X-Diva-Pin':livePinInput.value.trim(), 'Content-Type':'application/json'};}
@@ -393,6 +413,51 @@ else if(bridgeIsReady())bridgePoll();
 
 // Intro is text-only until the user taps a button: mobile browsers require a gesture before audio can play.
 addChat('Seda_34','Diva nasılsın? 💗');addChat('PatiKralı','Bize laf sok! 😈');showSpeech('Aşkolar, yayına hoş geldiniz!');lastSpeakTime=Date.now();
+})();
+</script>
+
+<div class="fullscreen-hint" id="fullscreenHint" role="status" aria-live="polite" hidden></div>
+<script id="diva-show-fullscreen-script">
+(()=>{
+  'use strict';
+  const btn = document.getElementById('fullscreenBtn');
+  const hint = document.getElementById('fullscreenHint');
+  if(!btn)return;
+  let hintTimer;
+  const fsElement = () => document.fullscreenElement || document.webkitFullscreenElement;
+  function syncButton(){
+    const active=Boolean(fsElement());
+    btn.classList.toggle('is-fullscreen',active);
+    btn.setAttribute('aria-pressed',String(active));
+    btn.setAttribute('aria-label',active?'Tam ekrandan çık':'Tam ekrana geç');
+    btn.title=active?'Tam ekrandan çık':'Tam ekran';
+  }
+  function showHint(message){
+    if(!hint)return;
+    hint.textContent=message;
+    hint.hidden=false;
+    clearTimeout(hintTimer);
+    hintTimer=setTimeout(()=>{hint.hidden=true;},4800);
+  }
+  btn.addEventListener('click',async()=>{
+    const root=document.documentElement;
+    try{
+      if(fsElement()){
+        const leave=document.exitFullscreen||document.webkitExitFullscreen;
+        if(!leave)throw new Error('exit unsupported');
+        await leave.call(document);
+      } else {
+        const enter=root.requestFullscreen||root.webkitRequestFullscreen;
+        if(!enter)throw new Error('enter unsupported');
+        await enter.call(root);
+      }
+    }catch(_error){
+      showHint('Bu tarayıcı tam ekran geçişine izin vermiyor. Chrome üzerinden yeniden deneyebilirsin.');
+    }finally{syncButton();}
+  });
+  document.addEventListener('fullscreenchange',syncButton);
+  document.addEventListener('webkitfullscreenchange',syncButton);
+  syncButton();
 })();
 </script>
 </body>
