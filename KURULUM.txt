@@ -1,13 +1,14 @@
-DIVA SHOW — ARAYÜZ GÜNCELLEMESİ
-================================
-1. GitHub: https://github.com/threedeetr/DivaShow
-2. Ana depoda index.html dosyasını bu paketteki index.html ile değiştir.
-   GitHub telefonda: Add file > Upload files > index.html > Commit changes.
-3. Render: Deploy Live olunca Diva Show sayfasını yenile.
-4. Üst başlık: Diva Show; alt başlık: HAMAM BÖCEKLERİNİN DİVASI.
-5. Eski DEMO rozeti yerine tam ekran aç/kapat butonu bulunur.
+DIVA SHOW - SADE CANLI YAYIN ARAYUZU
 
-NOT: app.py, diva_ai.py, diva_voice.py, requirements.txt ve render.yaml DEĞİŞMEZ.
-Türkçe ses ve TikTok bağlantı sistemi aynı kalır.
-Tam ekran, Android Chrome gibi Fullscreen API destekleyen tarayıcılarda çalışır.
-Bazı tarayıcılarda tam ekran geçişi kısıtlı olabilir.
+SADECE index.html dosyasini GitHub DivaShow deponuzdaki eskisiyle degistirin.
+ZIP dosyasini degil, ZIP icindeki index.html dosyasini GitHub'a yukleyin.
+
+Degisiklikler:
+1. Pembe krallik etiketi hafif asagi alindi.
+2. Logo paneli yazisi kadar kisaldi.
+3. Diva Show ve HAMAM BOCEKLERININ DIVASI yazilari buyutuldu.
+4. Ornek sohbetler ve ornek sohbet basligi kaldirildi. Gelen gercek sohbet gorunur.
+5. Hediye deneme paneli gizlendi; sadece ortalanmis Oto sohbet dugmesi var.
+
+Oto sohbet: etkinlestirince 34 saniyelik araliklarla, konusma olmadiysa hazir espriler seslendirilir. Groq ile yeni uretim degildir.
+TikTok baglantisi, Groq, Emel Neural ve altı mimik kodu korundu.

@@ -112,6 +112,71 @@ button,input,select{font:inherit}button{cursor:pointer;touch-action:manipulation
 .fullscreen-hint[hidden]{display:none}
 @media(max-width:380px){.header{left:8px;right:8px;gap:6px}.header .brand{padding:8px 6px;gap:4px}.header .crown{font-size:22px}.header .brand-title{font-size:clamp(16px,4.75vw,20px)}.header .brand-sub{font-size:clamp(6.6px,1.85vw,7.5px);letter-spacing:0}.header .iconbtn{height:36px;width:36px}.header .fullscreen-btn,.header #settingsBtn{flex-basis:36px}}
 </style>
+<style id="diva-show-sade-style">
+/* Sade yayin arayuzu: eski demo kontrolleri JS uyumu icin DOM'da kalir, gosterilmez. */
+.controls{display:none !important}
+.header{justify-content:flex-end}
+.header .brand{
+  flex:0 1 auto;
+  width:max-content;
+  max-width:calc(100% - 102px);
+  padding:10px 13px;
+  gap:6px;
+}
+.header .brand-wordmark{min-width:0;flex:0 1 auto}
+.header .brand-title{font-size:clamp(22px,6.15vw,30px);line-height:1.06}
+.header .brand-sub{
+  font-size:clamp(8.4px,2.55vw,11px);
+  letter-spacing:.2px;
+  line-height:1.22;
+  margin-top:5px;
+  font-weight:850;
+}
+.header .fullscreen-btn{margin-left:auto}
+/* Etiket baslik ve durum cubugundan bir miktar asagi tasindi. */
+.top-meta{top:91px}
+.chat{bottom:86px;max-height:27vh}
+#chatLabel{display:none}
+/* Ana sahne alani demo paneli yerine kullanilir. */
+.character-wrap{height:84%;top:8%;bottom:auto}
+/* Alt orta: gercekten calisan oto sohbet butonu. */
+.idle-dock{
+  z-index:15;
+  position:absolute;
+  bottom:max(14px,env(safe-area-inset-bottom));
+  left:50%;
+  transform:translateX(-50%);
+  width:min(260px,calc(100% - 48px));
+  pointer-events:auto;
+}
+.idle-dock #idleBtn{
+  width:100%;
+  min-height:44px;
+  flex:none;
+  padding:10px 17px;
+  border-radius:28px;
+  border:1.5px solid rgba(255,233,177,.9);
+  background:linear-gradient(120deg,rgba(107,21,80,.93),rgba(175,35,116,.94));
+  box-shadow:0 5px 23px rgba(53,8,43,.35),inset 0 1px 0 rgba(255,255,255,.3);
+  color:#fff3fb;
+  font-size:14px;
+  font-weight:850;
+  white-space:nowrap;
+  backdrop-filter:blur(12px);
+}
+.idle-dock #idleBtn.on{
+  background:linear-gradient(120deg,#ffe4ab,#ffd0e4);
+  border-color:#fff9dd;
+  color:#6b1945;
+}
+@media(max-height:750px){.top-meta{top:84px}.chat{bottom:80px;max-height:23vh}}
+@media(max-width:380px){
+  .header .brand{max-width:calc(100% - 88px);padding:9px 8px;gap:4px}
+  .header .brand-title{font-size:clamp(20px,6.15vw,23px)}
+  .header .brand-sub{font-size:clamp(7.6px,2.5vw,9px);letter-spacing:0}
+  .idle-dock #idleBtn{font-size:13px}
+}
+</style>
 </head>
 <body>
 <div id="app">
@@ -139,8 +204,9 @@ button,input,select{font:inherit}button{cursor:pointer;touch-action:manipulation
     <button class="gift" data-gift="big"><span class="gico">🎁</span><span class="gname">Büyük hediye</span></button>
    </div>
    <form class="inputrow" id="msgForm"><input class="messagebox" id="message" placeholder="Örn: @Ayşe: Diva nasılsın?" aria-label="Test yorumunu yaz" maxlength="180" autocomplete="off"/><button class="send" type="submit">➤ Gönder</button></form>
-   <div class="toolrow"><button class="action standout" id="voiceBtn" type="button">🔊 Sesi aç / Test et</button><button class="action" id="sampleBtn" type="button">🎲 Yorum dene</button><button class="action" id="idleBtn" type="button">⏳ Oto sohbet: Kapalı</button></div>
+   <div class="toolrow"><button class="action standout" id="voiceBtn" type="button">🔊 Sesi aç / Test et</button><button class="action" id="sampleBtn" type="button">🎲 Yorum dene</button></div>
  </div>
+ <div class="idle-dock"><button class="action" id="idleBtn" type="button" aria-pressed="false">⏳ Oto sohbet: Kapalı</button></div>
  <div class="toast" id="toast" aria-live="polite"></div>
  <div class="confetti" id="confetti" aria-hidden="true"></div>
  <div class="settings" id="settings"><div class="settings-card" role="dialog" aria-modal="true" aria-labelledby="setTitle"><div class="settings-top"><h2 id="setTitle">👑 Diva Ayarları</h2><button class="close" id="closeSettings">Kapat ✕</button></div>
@@ -271,7 +337,7 @@ $('msgForm').addEventListener('submit',(e)=>{e.preventDefault();const raw=$('mes
 const samples=[['Seda_34','Diva nasılsın?'],['MertCan','Bugün çok güzelsin!'],['PatiKralı','Bize laf sok!'],['Esra','Diva kaç yaşındasın?'],['Buse','Bana selam verir misin?'],['Fırat','Sence aşk nedir?']];
 $('sampleBtn').addEventListener('click',()=>{const [name,msg]=pick(samples);addChat(name,msg);speak(react(msg,name),/(laf sok|sinir)/i.test(msg)?'angry':/(güzelsin|tatlı)/i.test(msg)?'wink':'normal');});
 function scheduleIdle(){clearTimeout(idleTimer);if(!idleEnabled)return;idleTimer=setTimeout(()=>{if(idleEnabled&&!document.hidden &&Date.now()-lastSpeakTime>26000) speak(pick(['Aşkolar, bu sessizlik ne? Hepiniz ilaçlama arabası mı gördünüz?','Biri bana bir iltifat etsin, antenlerim motivasyon bekliyor!','Kraliçeniz burada! Chat bir selam versin de şenlenelim!','Ay bu ne sessizlik? Pembe şalım bile daha çok konuşuyor!']));scheduleIdle()},34000)}
-$('idleBtn').addEventListener('click',()=>{idleEnabled=!idleEnabled;$('idleBtn').classList.toggle('on',idleEnabled);$('idleBtn').textContent=idleEnabled?'⏳ Oto sohbet: Açık':'⏳ Oto sohbet: Kapalı';toast(idleEnabled?'Diva sessizlikte kendi kendine konuşacak.':'Otomatik konuşma durduruldu.');scheduleIdle()});
+$('idleBtn').addEventListener('click',()=>{idleEnabled=!idleEnabled;$('idleBtn').classList.toggle('on',idleEnabled);$('idleBtn').setAttribute('aria-pressed',String(idleEnabled));$('idleBtn').textContent=idleEnabled?'⏳ Oto sohbet: Açık':'⏳ Oto sohbet: Kapalı';toast(idleEnabled?'Diva sessizlikte kendi kendine konuşacak.':'Otomatik konuşma durduruldu.');scheduleIdle()});
 // Gender is NOT provided by SpeechSynthesisVoice. Put likely female voice names
 // first without pretending that every installed voice has a known gender.
 const femaleNameHint=/(kadın|female|woman|zeynep|emel|aylin|yelda|ayşe|aslı|ipek|merve|elif|selin|seda|eda)(\b|$)/i;
@@ -412,7 +478,7 @@ if(location.protocol==='file:')bridgeLabel.textContent='Bu HTML dosyası sadece 
 else if(bridgeIsReady())bridgePoll();
 
 // Intro is text-only until the user taps a button: mobile browsers require a gesture before audio can play.
-addChat('Seda_34','Diva nasılsın? 💗');addChat('PatiKralı','Bize laf sok! 😈');showSpeech('Aşkolar, yayına hoş geldiniz!');lastSpeakTime=Date.now();
+/* Demo sohbetler kaldırıldı. Gerçek yorumlar geldikçe sohbet kutusunda gösterilir. */showSpeech('Aşkolar, yayına hoş geldiniz!');lastSpeakTime=Date.now();
 })();
 </script>
 
