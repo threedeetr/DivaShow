@@ -342,10 +342,116 @@ def enhanced_connection_page(html: str) -> str:
     return html
 
 
+SHOW_CSS = r"""<style id="diva-show-rocket-style">
+/* Decorative cartoon missile: short-lived, pointer-events: none, zero layout impact. */
+.diva-rocket-layer{position:absolute;inset:0;pointer-events:none;z-index:95;overflow:hidden}
+.diva-rocket-flyer{position:absolute;left:108%;top:48%;width:clamp(230px,75vw,365px);
+  filter:drop-shadow(0 9px 18px #540d4dcc);transform:translate(0,-50%);
+  animation:diva-rocket-cross 2.45s cubic-bezier(.18,.14,.43,.99) forwards;will-change:left,transform}
+.diva-rocket-flyer svg{display:block;width:100%;height:auto}
+.diva-rocket-flash{position:absolute;inset:0;background:radial-gradient(circle at 50% 48%,#fff6ae88 0%,#ffc14718 45%,transparent 80%);
+  opacity:0;animation:diva-rocket-glow 1.05s ease-out .2s both}
+@keyframes diva-rocket-cross{0%{left:108%;transform:translate(0,-50%) rotate(-4deg)}
+  100%{left:-5%;transform:translate(-100%,-50%) rotate(2deg)}}
+@keyframes diva-rocket-glow{0%,100%{opacity:0}30%{opacity:.75}}
+@media(prefers-reduced-motion:reduce){.diva-rocket-flyer{animation-duration:.5s}.diva-rocket-flash{animation:none}}
+</style>"""
+
+SHOW_JS = r'''<script id="diva-show-meme-script">
+function divaNormalizeMeme(value){
+ return String(value||'').toLocaleLowerCase('tr-TR').normalize('NFD')
+  .replace(/[\u0300-\u036f]/g,'').replace(/ı/g,'i').replace(/[^a-z0-9]+/g,' ').trim().replace(/\s+/g,' ');
+}
+function divaIsAydinlatMeme(value){
+ const s=divaNormalizeMeme(value);
+ return /\baydinlat(?: hele)? (?:suralari|buralari|ortaligi)\b/.test(s)
+   || /\b(?:suralari|buralari|ortaligi)\s+aydinlat\b/.test(s)
+   || /\baydinlat hele\b/.test(s);
+}
+function divaIsNameQuestion(value){
+ const s=divaNormalizeMeme(value);
+ return /\b(?:adin ne|ismin ne|adi ne|ismi ne|sen kimsin|kimsin sen|kimsin)\b/.test(s);
+}
+const divaRocketReplies=[
+ 'Aydınlatıyorum aşkım! Bu ışıkta gözlüğünü tak, Diva füzesi geçiyor!',
+ 'Çekilin şekerler! Pembe krallığın aydınlatma müdürü füzesini yolladı!',
+ 'Ayy şuralar karanlık mı kalmış? Diva füzesini gönderiyorum, ayol!',
+ 'Işığı açmakla kalmam, gökyüzüne imzamı atarım! Yol verin Diva geliyor!'
+];
+let divaRocketLastAt=0;
+function divaLaunchLightRocket(){
+ const now=Date.now();
+ if(now-divaRocketLastAt<12000)return;
+ divaRocketLastAt=now;
+ const root=document.getElementById('app');
+ if(!root)return;
+ const layer=document.createElement('div');layer.className='diva-rocket-layer';layer.setAttribute('aria-hidden','true');
+ layer.innerHTML=`<div class="diva-rocket-flash"></div><div class="diva-rocket-flyer">
+ <svg viewBox="0 0 380 160" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+ <defs><linearGradient id="divaRocketMetal" x1="0" y1="0" x2="0" y2="1">
+ <stop stop-color="#fffaf8"/><stop offset=".53" stop-color="#becfd9"/><stop offset="1" stop-color="#6b7797"/></linearGradient>
+ <linearGradient id="divaRocketFire" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#ff3b92"/><stop offset=".5" stop-color="#ffca33"/><stop offset="1" stop-color="#fffadb"/></linearGradient></defs>
+ <path d="M342 61 C370 51 372 27 380 13 L360 76 L378 147 C356 130 355 99 342 95Z" fill="#ffbe50" opacity=".9"/>
+ <path d="M338 65 L382 80 338 94Z" fill="url(#divaRocketFire)"/>
+ <path d="M319 60L361 11 337 68Z" fill="#ee438c" stroke="#fff5cb" stroke-width="3"/>
+ <path d="M319 94L360 150 337 89Z" fill="#d32774" stroke="#fff5cb" stroke-width="3"/>
+ <path d="M22 80Q75 22 165 52L324 52Q346 80 324 108L165 108Q75 138 22 80Z" fill="url(#divaRocketMetal)" stroke="#7a3966" stroke-width="4"/>
+ <path d="M22 80Q75 22 165 52Q122 80 165 108Q72 133 22 80Z" fill="#f6e0ef"/>
+ <path d="M160 56H306" stroke="#ffffff99" stroke-width="5" stroke-linecap="round"/>
+ <path d="M169 56L170 104" stroke="#d12574" stroke-width="6"/><path d="M279 55L279 105" stroke="#d12574" stroke-width="6"/>
+ <circle cx="221" cy="80" r="27" fill="#f9e9ff" stroke="#f458ad" stroke-width="5"/>
+ <path d="M221 61L225 72L237 72L229 81L232 93L221 86L210 93L213 81L205 72L217 72Z" fill="#e33790"/>
+ <text x="249" y="86" font-size="16" font-family="sans-serif" fill="#7e2554" font-weight="900" text-anchor="middle">DIVA</text>
+ <path d="M124 52L91 13L168 50Z" fill="#e53186" stroke="#fff3ce" stroke-width="3"/>
+ <path d="M124 108L91 148L168 110Z" fill="#c61b73" stroke="#fff3ce" stroke-width="3"/>
+ </svg></div>`;
+ root.appendChild(layer);
+ setTimeout(()=>layer.remove(),2900);
+}
+</script>'''
+
+
+def enhanced_show_page(html: str) -> str:
+    """Progressive web app metadata and one special TikTok meme; leave existing images untouched."""
+    head_tag = "</head>"
+    if html.count(head_tag) != 1:
+        raise RuntimeError("Diva head anchor missing")
+    html=html.replace(head_tag, '''<link rel="manifest" href="/manifest.webmanifest" />
+<meta name="application-name" content="Diva Show" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+''' + SHOW_CSS + head_tag, 1)
+    original = "    addChat(user,msg);\n    if(!$('autoReplyComments').checked)return;"
+    if html.count(original)!=1:
+        raise RuntimeError("Diva TikTok comment anchor missing")
+    # Animations display for the meme even if voice auto replies were disabled.
+    html=html.replace(original,"    addChat(user,msg);\n    if(divaIsAydinlatMeme(msg))divaLaunchLightRocket();\n    if(!$('autoReplyComments').checked)return;",1)
+    original = "    const reply=react(msg,user);\n    const mood=/(sinir|laf sok|saçma)/i.test(msg)?'angry':"
+    if html.count(original)!=1:
+        raise RuntimeError("Diva live chat reply anchor missing")
+    html=html.replace(original,'''    if(divaIsAydinlatMeme(msg)){
+      const line=divaRocketReplies[Math.floor(Math.random()*divaRocketReplies.length)];
+      bridgeOffer({text:line,mood:'surprised',kind:'meme',source:msg,username:user},1);
+      return;
+    }
+    const reply=divaIsNameQuestion(msg)?'Ben Diva! Hamam böceklerinin tek divası benim, aşkım!':react(msg,user);
+    const mood=/(sinir|laf sok|saçma)/i.test(msg)?'angry':''',1)
+    # Scripted replies bypass Groq (and its quota); keep original welcome and Groq flow intact.
+    old="const reaction=item.kind==='welcome'\n      ? {reply:item.text,mood:item.mood||'wink'}"
+    if html.count(old)!=1:
+        raise RuntimeError("Diva AI queue anchor missing")
+    html=html.replace(old,"const reaction=(item.kind==='welcome'||item.kind==='meme')\n      ? {reply:item.text,mood:item.mood||'wink'}",1)
+    end_tag="</body>"
+    if html.count(end_tag)!=1:
+        raise RuntimeError("Diva body anchor missing")
+    html=html.replace(end_tag,SHOW_JS+"\n"+end_tag,1)
+    return html
+
 @app.get("/")
 def home():
     html = enhanced_ai_page(enhanced_page(str(ROOT / "index.html")))
-    return HTMLResponse(enhanced_connection_page(html), headers={"Cache-Control": "no-store"})
+    return HTMLResponse(enhanced_show_page(enhanced_connection_page(html)), headers={"Cache-Control": "no-store"})
 
 
 @app.post("/api/tts")
@@ -358,6 +464,22 @@ async def tts(body: SpeechRequest, x_diva_pin: str | None = Header(None)):
 async def ai_reply(body: AiReplyRequest, x_diva_pin: str | None = Header(None)):
     authorize(x_diva_pin)
     return await generate_ai_reply(body)
+
+
+@app.get("/manifest.webmanifest")
+def app_manifest():
+    from fastapi.responses import FileResponse
+    return FileResponse(ROOT / "manifest.webmanifest", media_type="application/manifest+json")
+
+
+@app.get("/icon-192.png")
+def pwa_icon_192():
+    return FileResponse(ROOT / "icon-192.png", media_type="image/png")
+
+
+@app.get("/icon-512.png")
+def pwa_icon_512():
+    return FileResponse(ROOT / "icon-512.png", media_type="image/png")
 
 
 @app.get("/health")

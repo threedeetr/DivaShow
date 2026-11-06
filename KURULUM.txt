@@ -1,28 +1,17 @@
-DIVA SHOW — GROQ KONTROLLÜ AKILLI MİMİK GÜNCELLEMESİ
+DIVA SHOW - KARAKTER KIMLIGI + AYDINLAT HELE SURALARI + UYGULAMA GORUNUMU
 
-GitHub: https://github.com/threedeetr/DivaShow
+1) GitHub /threedeetr/DivaShow ana klasorune ZIP icindeki 5 dosyayi yukleyin:
+   app.py, diva_ai.py, manifest.webmanifest, icon-192.png, icon-512.png
+   index.html dosyasini DEGISTIRMEYIN. Eski ses, efekt ve TikTok sistemi kalacak.
+2) Commit changes yapin. Render otomatik yeniden Live durumuna gelsin.
+3) Diva sitenizi Chrome ile acip 3 nokta > Uygulamayi yukle veya Ana ekrana ekle
+   secenegini kullanin. Ana ekran simgesinden acinca adres cubugu gorunmeyebilir.
+   Telefonun Android/Chrome surumune gore bir kisayol olarak acilabilir.
+4) Ayarlar > Yapay zekayi dene: ismim ne sorusunu canli yayin yorumuyla deneyin.
+5) Ozel efekt: 'Aydınlat hele şuraları' yazildiginda buyuk cizgi film fuzesi
+   sagdan sola gecip Diva esprili cevap verir.
 
-YÜKLENECEK DOSYALAR:
-1) app.py
-2) diva_ai.py
+Tarayici guvenlik uyarisi (Tam ekrandan cikmak icin ustten kaydir...) Chrome'un
+kendisidir, site koduyla gizlenemez. Normal sekmede adres cubugu gizlenemez.
 
-ZIP dosyasını telefonunda aç ve içindeki bu iki dosyayı GitHub deponun ana dizinine yükle.
-Mevcut aynı adlı dosyaların üzerine yazılıp yazılmadığını kontrol et; 'Commit changes' yap.
-Render otomatik yayımlama açıksa Live olana kadar kontrol et; değilse Manual Deploy > Deploy latest commit.
-Chrome'dan Diva Show sitesini yenile. Yeni API anahtarı veya env değişkeni gerekmiyor.
-
-NASIL ÇALIŞIR?
-* Mevcut Groq API çağrısı artık hem reply (cevap) hem mood (mimik) üretir; ikinci API çağrısı yok.
-* normal = normal konuşma; angry = sinirli; surprised = şaşkın; wink = göz kırpma; celebrate = kutlama.
-* Yapay zekâ kapalıysa, hata olursa veya kota dolarsa eski hazır cevap + mimik seçimi kullanılmaya devam eder.
-* Akıllı otosohbette de cevabın duygusuna göre mimik seçilir.
-* Karşılama, TikTok LIVE, Euler Stream anahtarı, seslendirme, öpücük animasyonu, 6 yüz görseli değişmedi.
-* Default model openai/gpt-oss-20b için Groq Structured Outputs kullanılır. Model değiştirildiyse JSON modu kullanılır.
-
-TEST EDİLENLER:
-- Sahte API cevaplarıyla beş duygu, hediye ve otosohbet, yetkisiz API erişimi.
-- 390 px Chrome tarayıcı simülasyonunda 5 duygu -> 5 yüz durumu, şaşırmanın kutlama animasyonu açmaması, otosohbet.
-- Sunucu HTML oluşturma, JavaScript sözdizimi.
-- Gerçek TikTok/Groq/Render bağlantısıyla son canlı yayın testi yapılmadı.
-
-NOT: PIN veya API anahtarlarını GitHub'a asla yükleme.
+Mevcut GROQ_API_KEY, SIGN_API_KEY ve DIVA_PIN ayni kalir; sakın ZIP'e eklemeyin.

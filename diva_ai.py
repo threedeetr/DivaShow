@@ -10,6 +10,7 @@ import json
 from collections import defaultdict, deque
 from datetime import datetime, timezone
 import os
+import unicodedata
 import re
 import time
 from typing import Literal
@@ -59,7 +60,8 @@ class AiReplyRequest(BaseModel):
     kind: Literal["comment", "gift", "idle"] = "comment"
     spice: Literal["soft", "medium", "bold"] = "medium"
 
-SYSTEM = """Sen Diva adlı ışıltılı ve ukala, sempatik dişi bir hamam böceği karakterisin. Türkçe TikTok canlı yayınındasın.
+SYSTEM = """Kimliğin kesin ve değişmez: adın Diva. Sen Diva Show'un sunucusu olan dişi bir hamam böceğisin. Birinci tekil şahısla konuş; "Ben Diva", "Ben Diva'yım" veya "Benim adım Diva" de. Asla "Sen Diva", "Ben Sen Diva" veya kendine ikinci şahıs olarak seslenme. İsmini soran izleyiciye doğrudan ve net şekilde adının Diva olduğunu söyle.
+Sen Diva adlı ışıltılı ve ukala, sempatik dişi bir hamam böceği karakterisin. Türkçe TikTok canlı yayınındasın.
 Kendini muhteşem bir yıldız sanırsın. Mizahın hızlı, zeki, absürt, hafif cilveli ve kaprisli. Bazen 'ayol', 'aşkım', 'kız', 'lan' gibi hafif argo kullanabilirsin; aşağılayıcı hakaret, nefret, cinsellik, tehdit, zorbalık yok.
 İzleyicilerin gerçek sorularına mümkünse gerçekten cevap ver; her şey hakkında uydurma bilgi verme. Sağlık, hukuk, para vb. ciddi sorularda kısa ve ölçülü kal.
 Yalnızca şu iki alanı içeren geçerli JSON nesnesi döndür: {"reply":"Türkçe cevap", "mood":"normal"}.
@@ -103,13 +105,30 @@ async def _reserve_quota(kind: str = "comment") -> None:
         usage_timestamps.append(now)
 
 
+def is_diva_name_question(message: str) -> bool:
+    """Answer first-person identity questions, without hijacking unrelated names."""
+    value = unicodedata.normalize("NFKD", message.casefold()).replace("ı", "i")
+    value = "".join(ch for ch in value if not unicodedata.combining(ch))
+    value = re.sub(r"[^a-z0-9\s]", " ", value)
+    value = re.sub(r"\s+", " ", value).strip()
+    return bool(re.search(
+        r"\b(?:(?:senin\s+)?(?:adin|ismin)\s+(?:ne|nedir)|"
+        r"(?:sen\s+)?kimsin|kimsin\s+sen|"
+        r"(?:adini|ismini)\s+(?:soyle|soylesene)|kendini\s+tanit)\b",
+        value))
+
+
 async def generate_ai_reply(body: AiReplyRequest) -> dict[str, str]:
     api_key=os.environ.get("GROQ_API_KEY", "").strip()
+    name = _clean(body.username, 32) or "İzleyici"
+    msg = _clean(body.message, 240)
+    # A name question always gets the correct identity, even if Groq is slow.
+    # This also saves one free AI request.
+    if body.kind == "comment" and is_diva_name_question(msg):
+        return {"reply": "Ben Diva! Hamam böceklerinin tek divası benim, aşkım!", "mood": "wink", "engine": "identity"}
     if not api_key:
         raise HTTPException(status_code=503, detail="Yapay zekâ anahtarı ayarlanmamış; hazır cevaplara dönüldü.")
     await _reserve_quota(body.kind)
-    name = _clean(body.username, 32) or "İzleyici"
-    msg = _clean(body.message, 240)
     if not msg:
         raise HTTPException(status_code=422, detail="Mesaj boş.")
     key=name.casefold()
@@ -154,6 +173,7 @@ async def generate_ai_reply(body: AiReplyRequest) -> dict[str, str]:
         reply = _clean(reaction.get("reply") if isinstance(reaction.get("reply"), str) else "", 300)
         reply=re.sub(r"https?://\S+|www\.\S+", "", reply).strip()
         reply=re.sub(r"[*#`]+|[\[\]{}]", "", reply).strip(" '\"\n")
+        reply = re.sub(r"\b[Bb]en\s+[Ss]en\s+Diva\b", "Ben Diva", reply)
         if not reply:
             raise HTTPException(status_code=503, detail="Yapay zekâ boş yanıt verdi; hazır esprilere geçiliyor.")
         reply=reply[:220].rsplit(" ",1)[0] if len(reply)>220 else reply
