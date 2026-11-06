@@ -1,32 +1,25 @@
-DIVA SHOW — YORUM PANELI + DIVALIK + TURKCE MEME GUNCELLEMESI
+DIVA SHOW — HEDEF PANELİNİ GİZLE/GÖSTER
+====================================
 
-GITHUB: https://github.com/threedeetr/DivaShow
+Güncellenecek TEK dosya:
+- diva_dashboard.py
 
-1. Bu ZIP dosyasini telefonuna indir ve cikart.
-2. GitHub'daki DivaShow deposunu ac.
-3. Sadece diva_ai.py ve diva_dashboard.py dosyalarini eskilerinin yerine yukle.
-4. Commit changes yap; Render yeni surumu yayina alsin.
-5. Siteyi yenile (gerekirse Chrome'da sekmeyi kapatip yeniden ac).
+Kurulum (Android telefondan):
+1. ZIP'i indirip çıkar.
+2. https://github.com/threedeetr/DivaShow deposuna gir.
+3. diva_dashboard.py dosyasını yükleyip mevcut dosyayla değiştir.
+4. Commit changes yap.
+5. Render'da dağıtımın Live olmasını bekledikten sonra sayfayı yenile.
 
-YAPILANLAR
-- Canli izleyici yorumlari paneli yayin hedef cubugunun ustune tasindi.
-- Dans et, yemek yap, sarki soyle, spor yap, temizlik yap gibi emirlerde
-  'Ben divayim, ... yapmam!' tavri ve kisa saka. Bu belirli istekler
-  Groq API istegi harcamaz; diger yorumlar normal AI akisini kullanir.
-- 'Hangi Manifest kizisin?' sorusunda Diva'nin bagimsiz karakteri korunur.
-- Ilgili sohbetlerde TikTok/Instagram hamam bocegi ve Manifest memeleri
-  hakkinda kisa kultur rehberi Groq'a baglam olarak verilir.
-- Konusma tonlari (Daha sivri dahil), TikTok, Emel sesi, hedef/puan,
-  mimikler, fuse ve engellenmis kelime filtresi degistirilmedi.
+Kullanım:
+- Diva Show > Ayarlar > Yayın hedefi bölümüne git.
+- "👁️ Hedef panelini göster" düğmesine basınca hedef paneli görünür.
+- "🙈 Hedef panelini gizle" düğmesine basınca hedef paneli kaybolur.
+- İlk kurulumda varsayılan KAPALI'dır (önceki TikTok yaptırımları nedeniyle).
+- Seçimin aynı tarayıcıda kaydedilir; yenilediğinde korunur.
+- Panel gizliyken hedef adı, miktarı, sıfırlama ve hediye ilerlemesi korunur.
+- AI dudak sayacı, ses, TikTok bağlantısı ve diğer animasyonlara dokunulmadı.
 
-NOT: GPT modelinin kendisi egitilmedi. Her ilgili yorumda sistem istemine
-kisa kulturel baglam eklenir; bilinen eserler anlik kontrol edilmez.
-Mevcut Groq entegrasyonunda internet aramasi acilmadi.
-
-GELISTIRICI TESTLERI
-- Python syntax, FastAPI HTML olusturma
-- Chrome 320x690 / 390x844 / 430x932 / 390x600 gorunumleri
-- Canli panelin hedef ustunde kalmasi
-- Girdi -> kisa karakter yaniti ve yanlis olumlu kontrolu
-- Groq sahte API yanit testi, kota ve duygular
-Gercek TikTok yayini ve gercek Groq istegi bu ortamda denenmedi.
+ÖNEMLİ:
+Panelin gizlenmesi TikTok yaptırımlarının kaldırılacağını GARANTİ ETMEZ.
+TikTok otomatik yayın/hediye talebi konusundaki diğer unsurları da değerlendirebilir.

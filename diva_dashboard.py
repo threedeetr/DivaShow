@@ -16,6 +16,8 @@ DASHBOARD_CSS = r'''<style id="diva-dashboard-css">
   padding:9px 12px 8px;border-radius:16px;border:1px solid #ffead69c;
   background:linear-gradient(130deg,#601438dc,#8f245ad6);box-shadow:0 4px 19px #58133a66,inset 0 1px #ffffff32;color:white;
   font-size:11px;overflow:hidden;pointer-events:none}
+/* Keep the goal entirely absent from the stream overlay while the toggle is off. */
+#divaGoalHud[hidden]{display:none !important}
 .diva-goal-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-weight:850}
 #divaGoalTitle{display:block;max-width:70%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #divaGoalAmount{font-variant-numeric:tabular-nums;white-space:nowrap;color:#ffe6b0;font-size:11px}
@@ -32,6 +34,9 @@ DASHBOARD_CSS = r'''<style id="diva-dashboard-css">
 .diva-goal-settings button{flex:1;padding:9px 7px;border-radius:11px;border:1px solid #fff5cc9f;font-size:12px;font-weight:900;
   color:#5d143e;background:#ffe7b6}
 .diva-goal-settings button.secondary{background:#6d215a;color:#fff5f5}
+.diva-goal-settings #divaGoalVisibilityToggle{display:block;width:100%;margin:1px 0 9px;min-height:42px;
+  background:#b63675;color:#fff8f0;border-color:#ffdbed;cursor:pointer}
+.diva-goal-settings #divaGoalVisibilityToggle[data-visible="false"]{background:#5a274b;color:#ffe7f2;border-color:#dca8c5}
 .diva-goal-settings p{font-size:11px;line-height:1.45;color:#ffddea;margin:9px 0 0}
 #divaGoalSettingsStatus{min-height:15px;font-weight:800;color:#f6e3a3}
 @media(max-width:355px){#divaAiChip{top:130px;right:9px;padding:4px 8px;font-size:11px}#divaGoalHud{bottom:80px;left:8px;right:8px;padding:7px 10px;font-size:10px}}
@@ -46,7 +51,7 @@ DASHBOARD_CSS = r'''<style id="diva-dashboard-css">
 DASHBOARD_HUD = r'''<aside id="divaAiChip" aria-label="Başarılı Groq cevap sayısı" title="Bu Render oturumunda bugün üretilen başarılı Groq cevapları. Ücretsiz Groq hesap bakiyesi değildir.">
   <span class="lips" aria-hidden="true">💋</span><strong id="divaAiCount">—</strong>
 </aside>
-<section id="divaGoalHud" aria-label="Canlı yayın hediye hedefi">
+<section id="divaGoalHud" aria-label="Canlı yayın hediye hedefi" hidden>
   <div class="diva-goal-head"><span id="divaGoalTitle">👠 Marka ayakkabı almak</span><span id="divaGoalAmount">0 / 1.000</span></div>
   <div class="diva-goal-track" role="progressbar" aria-label="Hediye hedefi ilerlemesi" aria-valuemin="0" aria-valuemax="1000" aria-valuenow="0" id="divaGoalTrack"><div id="divaGoalFill"></div></div>
   <div class="diva-goal-foot"><span>🎁 Hediye puanı</span><span id="divaGoalPercent">%0</span></div>
@@ -54,6 +59,8 @@ DASHBOARD_HUD = r'''<aside id="divaAiChip" aria-label="Başarılı Groq cevap sa
 
 DASHBOARD_SETTINGS = r'''<section class="diva-goal-settings" aria-label="Yayın hedefi ayarları">
   <h3>🎯 Yayın hedefi</h3>
+  <button id="divaGoalVisibilityToggle" type="button" aria-pressed="false" data-visible="false">👁️ Hedef panelini göster</button>
+  <p>Panel gizlenince yayında görünmez; hedef, biriken puanlar ve ayarlar kaybolmaz.</p>
   <label for="divaGoalInputTitle">Hedefin adı</label>
   <input id="divaGoalInputTitle" type="text" maxlength="65" placeholder="Örn: Marka ayakkabı almak" autocomplete="off" />
   <label for="divaGoalInputTarget">Hedef için gereken jeton / hediye puanı</label>
@@ -81,6 +88,9 @@ const goalTargetKey='divaGoalTargetV1';
 const goalBaseKey='divaGoalStartV1';
 const ledgerKey='divaGiftLedgerV1';
 const aiLedgerKey='divaAiLedgerV1';
+const goalVisibleKey='divaGoalVisibleV1';
+// Hide by default for new installs; an explicit choice persists on this device.
+let goalVisible=get(goalVisibleKey,'no')==='yes';
 let title=get(goalTitleKey,'👠 Marka ayakkabı almak');
 let target=Math.max(1,Math.min(100000000,Math.round(safeNum(get(goalTargetKey,'1000'),1000))));
 let ledger=readJson(ledgerKey,{boot:'',last:0,total:0});
@@ -93,6 +103,20 @@ aiLedger={day:String(aiLedger.day||''),boot:String(aiLedger.boot||''),last:safeN
 const titleInput=$d('divaGoalInputTitle');
 const targetInput=$d('divaGoalInputTarget');
 const notice=$d('divaGoalSettingsStatus');
+const goalVisibilityBtn=$d('divaGoalVisibilityToggle');
+function syncGoalVisibility(){
+ $d('divaGoalHud').hidden=!goalVisible;
+ goalVisibilityBtn.dataset.visible=goalVisible?'true':'false';
+ goalVisibilityBtn.setAttribute('aria-pressed',String(goalVisible));
+ goalVisibilityBtn.textContent=goalVisible?'🙈 Hedef panelini gizle':'👁️ Hedef panelini göster';
+}
+goalVisibilityBtn.addEventListener('click',()=>{
+ goalVisible=!goalVisible;
+ put(goalVisibleKey,goalVisible?'yes':'no');
+ syncGoalVisibility();
+ notice.textContent=goalVisible?'✓ Hedef paneli yayın ekranında gösteriliyor.':'✓ Hedef paneli gizlendi. Hedef ilerlemesi korunuyor.';
+});
+syncGoalVisibility();
 function draw(){
  const progress=Math.max(0,Math.floor(ledger.total-goalBase));
  const percentage=Math.min(100,Math.round(progress/target*100));
