@@ -6,6 +6,8 @@ The optional TikTokLive dependency is imported on a real connect request.
 from __future__ import annotations
 
 import asyncio
+import json
+import traceback
 import hmac
 import secrets
 import os
@@ -77,10 +79,50 @@ def is_sign_rate_limit(exc: Exception) -> bool:
             ("RATE_LIMIT" in detail and "TikTokLive" in detail))
 
 
+def identify_connection_failure(exc: Exception) -> tuple[str, str, str]:
+    """Convert external TikTokLive failures into user-safe and actionable status.
+
+    Never expose an upstream response body, session cookie, API key, or signed URL.
+    The frame names are only used for a best-effort stage label.
+    """
+    kind = type(exc).__name__
+    frames = traceback.extract_tb(exc.__traceback__)
+    callsites = " ".join((frame.filename.replace("\\", "/").split("/")[-1] + " " + frame.name).lower()
+                         for frame in frames)
+    source = "bağlantı verisi"
+    if any(word in callsites for word in ("web_signer", "eulerapisdk", "webcast_sign", "sign_webcast", "fetch_signed_websocket")):
+        source = "imzalama servisi"
+    elif any(word in callsites for word in ("room_id", "room_info", "fetch_room", "web_routes")):
+        source = "TikTok yayın bilgisi"
+
+    reason = str(getattr(exc, "reason", "") or "").upper()
+    if isinstance(exc, json.JSONDecodeError) or kind == "JSONDecodeError" or reason == "EMPTY_PAYLOAD":
+        message = ("TikTok LIVE kaynağından boş/geçersiz yanıt geldi. PIN hatası değil. "
+                   "Yayının açık olduğunu kontrol et; bekleyip tekrar dene.")
+        return "bad_upstream_response", source, message
+    if kind == "FailedParseRoomIdError":
+        return ("room_info_unavailable", "TikTok yayın bilgisi",
+                "TikTok yayın bilgisi alınamadı. Yayın açık mı kontrol et; TikTok erişimi geçici engellemiş olabilir.")
+    if kind in ("UserOfflineError", "UserNotFoundError"):
+        return ("live_not_found", "TikTok yayın bilgisi",
+                "TikTok hesabı canlı görünmüyor. Yayın açık mı ve kullanıcı adı doğru mu kontrol et.")
+    if reason in ("CONNECT_ERROR", "SIGN_NOT_200", "EMPTY_COOKIES"):
+        return ("signing_unavailable", "imzalama servisi",
+                "TikTok imzalama servisi yanıt vermedi. Euler Stream bağlantını kontrol et; kısa aralıklarla tekrar deneme.")
+    if isinstance(exc, (TimeoutError, asyncio.TimeoutError)):
+        return ("connection_timeout", source,
+                "TikTok LIVE bağlantısı zaman aşımına uğradı. Sunucu veya dış servis geçici yavaş olabilir.")
+    # Keep raw provider responses and signed URLs out of the browser and LIVE overlay.
+    safe_kind = re.sub(r"[^A-Za-z0-9_]", "", kind)[:55] or "UnknownError"
+    return ("other", source,
+            f"TikTok LIVE bağlantısı başarısız oldu ({safe_kind}). Yayını ve imzalama servisinin durumunu kontrol et.")
+
+
 def connection_status() -> dict:
     retry = seconds_until(rate_limit_retry_at)
     gap = seconds_until(last_connect_attempt_at + MIN_CONNECT_GAP)
     return {**state, "latest_id": sequence,
+            "sign_key_configured": bool(os.environ.get("SIGN_API_KEY", "").strip()),
             "backend_boot_id": backend_boot_id,
             "gift_points_total": gift_points_total,
             "gift_unknown_value_events": gift_unknown_value_events,
@@ -190,7 +232,7 @@ async def live_worker(name: str, my_generation: int) -> None:
         @live.on(ConnectEvent)
         async def on_connect(_event: object) -> None:
             if my_generation == generation:
-                state.update(phase="connected", connected=True, error="")
+                state.update(phase="connected", connected=True, error="", error_code="", error_source="")
                 add_event("system", text=f"@{name} yayınına bağlantı kuruldu.")
 
         @live.on(DisconnectEvent)
@@ -325,9 +367,9 @@ async def live_worker(name: str, my_generation: int) -> None:
                            f"Yaklaşık {(remaining + 59) // 60} dakika sonra yeniden dene.")
                 state.update(phase="cooldown", connected=False, error=message)
             else:
-                # Avoid leaking sensitive session/cookie or token details in logs/UI.
-                message = clean_text(type(exc).__name__ + ": " + str(exc), 160)
-                state.update(phase="error", connected=False, error=message)
+                error_code, error_source, message = identify_connection_failure(exc)
+                state.update(phase="error", connected=False, error=message,
+                             error_code=error_code, error_source=error_source)
             add_event("system", text="Bağlantı kurulamadı: " + message)
     finally:
         if my_generation == generation:
@@ -359,7 +401,8 @@ def enhanced_connection_page(html: str) -> str:
 """, 1)
     old = "else if(status.phase==='error')bridgeSetStatus('⚠ '+String(status.error||'Bağlanamadı').slice(0,100),'error');"
     assert html.count(old) == 1, "Cannot locate Diva error UI anchor"
-    html = html.replace(old, "else if(status.phase==='cooldown')bridgeSetStatus('⏳ '+String(status.error||'TikTok bağlantı limiti').slice(0,130),'error');\n    " + old, 1)
+    html = html.replace(old, "else if(status.phase==='cooldown')bridgeSetStatus('⏳ '+String(status.error||'TikTok bağlantı limiti').slice(0,130),'error');\n    " +
+                        "else if(status.phase==='error')bridgeSetStatus('⚠ Son bağlantı hatası: '+String(status.error||'Bağlanamadı').slice(0,140)+(status.sign_key_configured===false?' · Render SIGN_API_KEY eksik':''),'error');", 1)
     old = "try{await bridgeRequest('/api/connect','POST',{username:liveUserInput.value.trim()});bridge.lastId=0;bridge.joined=true;"
     assert html.count(old) == 1, "Cannot locate Diva connect UI anchor"
     html = html.replace(old, "try{const connection=await bridgeRequest('/api/connect','POST',{username:liveUserInput.value.trim()});bridge.lastId=Math.max(bridge.lastId,Number(connection.last_event_id)||0);bridge.joined=true;", 1)
@@ -669,7 +712,8 @@ async def api_connect(body: ConnectBody, x_diva_pin: str | None = Header(None)):
             runner.cancel()
         client = None
         last_connect_attempt_at = time.time()
-        state.update(phase="connecting", username=name, connected=False, error="", viewer_count=None)
+        state.update(phase="connecting", username=name, connected=False, error="",
+                     error_code="", error_source="", viewer_count=None)
         last_event_id = sequence  # never replay old LIVE comments after reconnect
         runner = asyncio.create_task(live_worker(name, generation))
     return {"ok": True, "phase": "connecting", "username": name,

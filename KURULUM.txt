@@ -1,25 +1,24 @@
-DIVA SHOW — SESLİ TEKRAR / ADIMI SÖYLE (06.11.2026)
+DIVA SHOW — TIKTOK BAĞLANTI HATASI (JSONDecodeError) AÇIKLAMA/GÜNCELLEME
 
-Kurulum:
-1. ZIP'i telefonda çıkarın.
-2. https://github.com/threedeetr/DivaShow deposuna girin.
-3. Yalnızca app.py ve diva_ai.py dosyalarını ana dizinde mevcut dosyalarla değiştirin.
-4. Commit changes yapın. Render yeniden Live olunca sayfayı yenileyin.
+Yüklenecek TEK dosya: app.py
 
-Yeni örnekler:
-- "Ahmet, Esra seni seviyormuş desene" => Ahmet, Esra seni seviyormuş
-- "Şunu de: Bu akşam çok güzelsin" => Bu akşam çok güzelsin
-- "Adımı söyler misin?" => İzleyicinin TikTok görünen adı (yoksa kullanıcı adı)
-- "Adımla beraber şunu de: Seni özledim" => [görünen ad], Seni özledim
+1. ZIP'i aç. app.py dosyasını GitHub'daki threedeetr/DivaShow deposunun ana dizinindeki app.py ile değiştir.
+2. Commit changes yap. Render'ın yeniden Live olmasını bekle ve sayfayı yenile.
+3. DIVA_PIN (site yönetici şifresi) ve TikTok yayın kullanıcı adını gir.
+4. TikTok hesabı GERÇEKTEN canlı yayındayken "Canlıya bağlan" düğmesine BİR kez bas.
+5. 45 saniyelik koruma süresi dolmadan tekrar tekrar bağlanma denemesi yapma.
+6. Sorun sürerse Render > Environment bölümünde SIGN_API_KEY'in varlığını (değerini paylaşmadan) kontrol et; Euler Stream hesabının/servisinin durumunu incele. Sonra Render > Logs altında bağlantı zamanındaki hata türünü kontrol et.
 
-Güvenlik:
-- Küfür, aşağılayıcı ifade, tehdit, kişisel bilgi ya da hediye gönderme
-  talebi içeren sesli tekrarlama komutları konuşma kuyruğuna alınmaz.
-- Mevcut @ etiketli mesaj, emoji ve aynı yorumun tekrarını engelleme
-  ayarları korunur.
-- Güvenli hazır tekrarlar Groq kotasını tüketmez.
-- Bunun dil tabanlı bir filtre olduğu, tüm yaratıcı yazılışları yakalama
-  garantisi taşımadığı unutulmamalıdır.
+DÜZELTİLENLER
+- TikTokLive içinde boş/geçersiz JSON yakalanırsa anlaşılır Türkçe uyarı gösterir.
+- Kullanıcı çevrimdışı, yayın bilgisi yok, imzalama servisi cevap vermiyor gibi hata sınıfları ayrı bildirilir.
+- PIN yanlışsa mevcut 401 koruması devam eder.
+- Sorunun bir önceki bağlantı girişiminden kalabileceğini "Son bağlantı hatası" olarak gösterir.
+- Render'da SIGN_API_KEY hiç tanımlı değilse bunun yalnızca varlığını bildirir; anahtarın kendisini göstermez.
+- İmzalama servisine gereksiz otomatik tekrar deneme eklenmedi: mevcut istek sınırı korundu.
 
-Diğer dosyaları değiştirmeyin; müzik, hedef paneli, karakter, mimikler,
-Emel Neural ve GitHub/Render ayarları aynen kalır.
+ÖNEMLİ: Bu güncelleme dış kaynaktaki bozuk cevabı sihirli şekilde onarmaz. Sorun TikTok/Euler Stream tarafındaysa düzeltme sağlayıcıya bağlıdır. Bu sürüm gerçek nedeni ayırt etmeyi ve anlaşılır hata mesajları görmeyi sağlar.
+
+KORUNANLAR: Groq, Emel Neural, yorum filtreleri, müzik, mimikler, hediye hedefi ve diğer arayüz davranışları. index.html değişmez.
+
+TEST: Sunucu açılışı, PIN doğrulama, boş JSON, çevrimdışı yayın, 429 limit, tarayıcıdaki JS sözdizimi.
