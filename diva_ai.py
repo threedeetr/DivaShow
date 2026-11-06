@@ -50,6 +50,8 @@ AI_SEMAPHORE = asyncio.Semaphore(2)
 usage_day = ""
 usage_count = 0
 idle_usage_count = 0
+successful_replies = 0
+successful_idle_replies = 0
 idle_last_request_at = 0.0
 usage_timestamps: deque[float] = deque(maxlen=100)
 history: dict[str, deque[tuple[str, str]]] = defaultdict(lambda: deque(maxlen=3))
@@ -80,12 +82,13 @@ def _clean(text: str, limit: int) -> str:
 
 
 async def _reserve_quota(kind: str = "comment") -> None:
-    global usage_day, usage_count, idle_usage_count, idle_last_request_at
+    global usage_day, usage_count, idle_usage_count, idle_last_request_at, successful_replies, successful_idle_replies
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     now = time.monotonic()
     async with AI_LOCK:
         if today != usage_day:
             usage_day, usage_count, idle_usage_count = today, 0, 0
+            successful_replies, successful_idle_replies = 0, 0
             idle_last_request_at = 0.0
             usage_timestamps.clear()
         while usage_timestamps and now-usage_timestamps[0] > 60:
@@ -118,7 +121,20 @@ def is_diva_name_question(message: str) -> bool:
         value))
 
 
+def usage_snapshot() -> dict:
+    """Local counters only: NOT the provider's account-level remaining free quota."""
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    same_day = usage_day == today
+    return {"ai_success_replies": successful_replies if same_day else 0,
+            "ai_idle_success_replies": successful_idle_replies if same_day else 0,
+            "ai_requests_today": usage_count if same_day else 0,
+            "ai_request_cap": MAX_DAILY,
+            "ai_count_day": today,
+            "ai_counter_is_local": True}
+
+
 async def generate_ai_reply(body: AiReplyRequest) -> dict[str, str]:
+    global successful_replies, successful_idle_replies
     api_key=os.environ.get("GROQ_API_KEY", "").strip()
     name = _clean(body.username, 32) or "İzleyici"
     msg = _clean(body.message, 240)
@@ -182,6 +198,11 @@ async def generate_ai_reply(body: AiReplyRequest) -> dict[str, str]:
             mood = "normal"
         history[key].append((msg, reply))
         if len(history)>200: history.clear()  # lightweight memory, no persistent viewer database
+        async with AI_LOCK:
+            if usage_day == datetime.now(timezone.utc).strftime("%Y-%m-%d"):
+                successful_replies += 1
+                if body.kind == "idle":
+                    successful_idle_replies += 1
         return {"reply":reply, "mood":mood, "engine":"groq"}
     except HTTPException: raise
     except (httpx.TimeoutException, httpx.HTTPError, ValueError, KeyError, IndexError):

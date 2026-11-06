@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import hmac
+import secrets
 import os
 import re
 import time
@@ -18,7 +19,8 @@ from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.responses import FileResponse, JSONResponse, HTMLResponse
 from pydantic import BaseModel, Field
 from diva_voice import SpeechRequest, synthesize_emel, enhanced_page
-from diva_ai import AiReplyRequest, generate_ai_reply, enhanced_ai_page
+from diva_ai import AiReplyRequest, generate_ai_reply, enhanced_ai_page, usage_snapshot
+from diva_dashboard import enhanced_dashboard_page
 
 ROOT = Path(__file__).resolve().parent
 APP_PIN = os.environ.get("DIVA_PIN", "").strip()
@@ -28,6 +30,9 @@ app = FastAPI(title="Diva CANLI bridge", version="1.0")
 
 feed: deque[dict] = deque(maxlen=400)
 sequence = 0
+backend_boot_id = secrets.token_hex(8)  # distinguishes Render restarts for the browser's gift ledger
+gift_points_total = 0  # gift diamond_count x repeat_count, not TikTok coin balance
+gift_unknown_value_events = 0
 state = {"phase": "idle", "username": "", "error": "", "connected": False}
 client = None
 runner: asyncio.Task | None = None
@@ -75,6 +80,10 @@ def connection_status() -> dict:
     retry = seconds_until(rate_limit_retry_at)
     gap = seconds_until(last_connect_attempt_at + MIN_CONNECT_GAP)
     return {**state, "latest_id": sequence,
+            "backend_boot_id": backend_boot_id,
+            "gift_points_total": gift_points_total,
+            "gift_unknown_value_events": gift_unknown_value_events,
+            **usage_snapshot(),
             "cooldown_seconds": retry,
             "reconnect_wait_seconds": max(retry, gap),
             "can_connect": retry == 0 and gap == 0 and state["phase"] not in ("connecting", "connected")}
@@ -226,6 +235,7 @@ async def live_worker(name: str, my_generation: int) -> None:
 
         @live.on(GiftEvent)
         async def on_gift(event: object) -> None:
+            global gift_points_total, gift_unknown_value_events
             if my_generation != generation or bool(getattr(event, "streaking", False)):
                 return
             gift = getattr(event, "gift", None)
@@ -240,6 +250,10 @@ async def live_worker(name: str, my_generation: int) -> None:
                 diamonds = max(0, int(diamond_raw)) if diamond_raw is not None else None
             except (ValueError, TypeError):
                 diamonds = None
+            if diamonds is None:
+                gift_unknown_value_events += 1
+            else:
+                gift_points_total += diamonds * count
             add_event(
                 "gift",
                 username=username_of(getattr(event, "user", None)),
@@ -451,7 +465,7 @@ def enhanced_show_page(html: str) -> str:
 @app.get("/")
 def home():
     html = enhanced_ai_page(enhanced_page(str(ROOT / "index.html")))
-    return HTMLResponse(enhanced_show_page(enhanced_connection_page(html)), headers={"Cache-Control": "no-store"})
+    return HTMLResponse(enhanced_dashboard_page(enhanced_show_page(enhanced_connection_page(html))), headers={"Cache-Control": "no-store"})
 
 
 @app.post("/api/tts")

@@ -1,17 +1,42 @@
-DIVA SHOW - KARAKTER KIMLIGI + AYDINLAT HELE SURALARI + UYGULAMA GORUNUMU
+DIVA SHOW — AI CEVAP SAYACI + CANLI HEDEF CUBUGU
 
-1) GitHub /threedeetr/DivaShow ana klasorune ZIP icindeki 5 dosyayi yukleyin:
-   app.py, diva_ai.py, manifest.webmanifest, icon-192.png, icon-512.png
-   index.html dosyasini DEGISTIRMEYIN. Eski ses, efekt ve TikTok sistemi kalacak.
-2) Commit changes yapin. Render otomatik yeniden Live durumuna gelsin.
-3) Diva sitenizi Chrome ile acip 3 nokta > Uygulamayi yukle veya Ana ekrana ekle
-   secenegini kullanin. Ana ekran simgesinden acinca adres cubugu gorunmeyebilir.
-   Telefonun Android/Chrome surumune gore bir kisayol olarak acilabilir.
-4) Ayarlar > Yapay zekayi dene: ismim ne sorusunu canli yayin yorumuyla deneyin.
-5) Ozel efekt: 'Aydınlat hele şuraları' yazildiginda buyuk cizgi film fuzesi
-   sagdan sola gecip Diva esprili cevap verir.
+Neler eklendi:
+- Pembe Krallik'in altinda 💋 ve gunluk basarili Groq cevap sayisi.
+- Ayarlarda ayrintili Groq sunucu istek sayisi / programdaki gunluk guvenlik siniri.
+- Ekranin altinda canli yayin hediye hedefi (ornek: Marka ayakkabi almak / 1000).
+- Ayarlardan hedef yazisini ve hedef puanini degistirme, ilerlemeyi sifirlama.
+- Hediye geldikce otomatik artan hedef cubugu ve hedef tamamlandi yazisi.
+- Render yeniden baslasa bile ayni tarayicida izlenen hediyeleri yeniden eklememeye calisan yerel kayit.
 
-Tarayici guvenlik uyarisi (Tam ekrandan cikmak icin ustten kaydir...) Chrome'un
-kendisidir, site koduyla gizlenemez. Normal sekmede adres cubugu gizlenemez.
+GITHUB:
+1. ZIP'i telefonunda ayikla.
+2. https://github.com/threedeetr/DivaShow adresine gir.
+3. ZIP'teki app.py, diva_ai.py, diva_dashboard.py, manifest.webmanifest,
+   icon-192.png ve icon-512.png dosyalarini repo kokune yukle.
+4. GitHub "Commit changes" ile onayla.
+5. Render > Live ve sayfayi yenile.
 
-Mevcut GROQ_API_KEY, SIGN_API_KEY ve DIVA_PIN ayni kalir; sakın ZIP'e eklemeyin.
+NOT: index.html ve diva_voice.py DEGISMIYOR. Bu paket bir onceki
+'Ben Diva' kimlik duzeltmesi, fuze efekti ve uygulama (PWA)
+yapilandirmasini da korur.
+
+AYARLAR:
+Diva Show > disli simgesi > Yayin hedefi.
+"Hedefin adi" ve "Hedef icin gereken jeton / hediye puani" alanlarini doldur.
+"Hedefi kaydet" mevcut ilerlemeyi korur.
+"Ilerlemeyi sifirla" yeni hedef sayimina sifirdan baslatir.
+
+DIKKAT:
+- Hedefin saydigi deger TikTokLive hediye elmas degeri x adettir.
+  Gercek TikTok Coin/jeton bakiyesi, para, bagis tutari veya kazanc DEGILDIR.
+  Degeri bilinmeyen hediyeler eklenmez. Demo hediyesi etkilemez.
+- AI sayaci sadece Groq'un basarili cevaplarini sayar; hazir cevaplari
+  ve sabit karakter kimligi cevaplarini saymaz. Otosohbet ve hediyeler icin
+  Groq basarili cevaplari da dahildir. Limit 700, yerel program guvenlik siniridir;
+  Groq'un resmi kalan kotasi DEGILDIR.
+- Sayaclar gunluk UTC'ye gore sifirlanir; Render ucretsiz sunucu yeniden basladiginda
+  sunucunun sayaclari da sifirlanir. Ayni telefondaki tarayici verileri tutulursa
+  gorulen AI cevaplari/hediye puanlari tarayicida korunmaya calisilir.
+- Telefonun tarayici verilerini silersen biriken veriler kaybolabilir.
+- Bu paket canli TikTok/Euler veya Microsoft Groq servislerine test ortamini
+  kullanarak dogrudan baglanmadi. Yerel simule testleri basarili.
