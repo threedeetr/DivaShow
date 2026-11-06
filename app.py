@@ -121,6 +121,31 @@ def is_blocked_comment(text: object) -> bool:
     return any(_BLOCKED_WORD.fullmatch(token) for token in re.findall(r"[a-z0-9]+", plain))
 
 
+def is_nonreply_comment(text: object) -> bool:
+    """Backend defense against spending AI quota on non-questions/reaction spam."""
+    raw = str(text or "").strip()
+    if not raw or "@" in raw:
+        return True
+    # Strip emoji sequences while preserving ordinary letters. Handle 1️⃣ too.
+    raw = re.sub(r"[0-9#*]\ufe0f?\u20e3", "", raw)
+    without_emoji = "".join(
+        ch for ch in raw
+        if not (0x1F000 <= ord(ch) <= 0x1FAFF or
+                0x2600 <= ord(ch) <= 0x27BF or
+                ch in "\ufe0f\ufe0e\u200d\u20e3")
+    ).strip()
+    if not any(ch.isalnum() for ch in without_emoji):
+        return True
+    only = re.sub(r"[\s.,!?…:;~\-_/]+", "", without_emoji.casefold())
+    if len(only) < 4 or len(only) > 90:
+        return False
+    if re.fullmatch(r"(?:ha|he|hi|hı|hu|hü|ho|hö){2,}h{0,2}", only):
+        return True
+    if re.fullmatch(r"[haksjd]{5,}", only):
+        return len(re.findall(r"ha|ah|hs|sh|ks|sk|sj|js|kd|dk|as|sa|sd|ds|hh", only)) >= 2
+    return False
+
+
 def add_event(event_type: str, **fields: object) -> dict:
     global sequence
     sequence += 1
@@ -497,10 +522,45 @@ def enhanced_show_page(html: str) -> str:
     html=html.replace(end_tag,SHOW_JS+"\n"+end_tag,1)
     return html
 
+CHAT_JS = "// Diva Show: decide which viewer comments deserve a spoken answer.\nconst divaRecentAnswers=new Map();\nconst DIVA_REPEAT_WINDOW_MS=10*60*1000;\nfunction divaCompactText(value){\n return String(value||'').normalize('NFKC').toLocaleLowerCase('tr-TR')\n  .replace(/[^\\p{L}\\p{N}\\s]/gu,' ').replace(/\\s+/g,' ').trim();\n}\nfunction divaDropEmoji(value){\n return String(value||'').replace(/[0-9#*]\\uFE0F?\\u20E3/gu,'')\n   .replace(/[\\p{Extended_Pictographic}\\p{Regional_Indicator}\\p{Emoji_Modifier}\\uFE0F\\uFE0E\\u200D\\u20E3]/gu,'');\n}\nfunction divaLaughOnly(value){\n const only=String(value||'').toLocaleLowerCase('tr-TR')\n  .replace(/[\\s.,!?…:;~\\-_/]+/g,'').trim();\n if(only.length<4||only.length>90)return false;\n if(/^(?:ha|he|hi|hı|hu|hü|ho|hö){2,}h{0,2}$/u.test(only))return true;\n // Keyboard-smash Turkish laughter: hshshah, kakskskskk, sjsjsj, asdasd...\n if(/^[haksjd]{5,}$/u.test(only)){\n   return (only.match(/ha|ah|hs|sh|ks|sk|sj|js|kd|dk|as|sa|sd|ds|hh/gu)||[]).length>=2;\n }\n return false;\n}\nfunction divaCommentShouldSkip(message,username,remember=true){\n const raw=String(message||'').trim();\n if(!raw||raw.includes('@'))return true; // chatting with another viewer\n const noEmoji=divaDropEmoji(raw).trim();\n if(!noEmoji.replace(/[.,!?…:;~+_\\-*()\\s]/g,''))return true; // just emoji/punctuation\n if(divaLaughOnly(noEmoji))return true;\n if(!remember)return false;\n const normalized=divaCompactText(raw);\n if(!normalized)return true;\n const key=divaCompactText(username||'izleyici')+'\\u0000'+normalized;\n const now=Date.now();\n const previous=divaRecentAnswers.get(key);\n if(previous!==undefined&&now-previous<DIVA_REPEAT_WINDOW_MS)return true;\n divaRecentAnswers.delete(key);\n divaRecentAnswers.set(key,now);\n if(divaRecentAnswers.size>400){\n   for(const [k,v] of divaRecentAnswers){if(now-v>=DIVA_REPEAT_WINDOW_MS)divaRecentAnswers.delete(k);}\n   while(divaRecentAnswers.size>400)divaRecentAnswers.delete(divaRecentAnswers.keys().next().value);\n }\n return false;\n}\n// The question is displayed only while Diva is answering that comment.\nlet divaNextAnswerContext=null;\nfunction divaQueueAnswerContext(item){\n divaNextAnswerContext=(item&&(item.kind==='comment'||item.kind==='meme')&&item.source)\n   ? {user:String(item.username||'İzleyici').slice(0,32),question:String(item.source).slice(0,200)} : null;\n}\nfunction divaRenderAnswerContext(){\n const el=document.getElementById('divaAnsweredQuestion');\n const ctx=divaNextAnswerContext;\n divaNextAnswerContext=null;\n if(!el)return;\n el.hidden=!ctx;\n el.textContent=ctx?'💬 '+ctx.user+': “'+ctx.question+'”':'';\n}\n"
+CHAT_CSS = '<style id="diva-answered-question-css">\n#divaAnsweredQuestion{display:block;max-width:94%;margin:0 auto 8px;padding:6px 10px;\n font-size:clamp(11px,2.9vw,14px);line-height:1.35;font-weight:600;opacity:.70;\n color:#fffdf8;text-shadow:0 1px 5px #521336;overflow-wrap:anywhere;\n display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;\n text-align:center}\n#divaAnsweredQuestion[hidden]{display:none!important}\n</style>'
+
+def enhanced_comment_page(html: str) -> str:
+    """Only answer relevant TikTok comments and show the quoted viewer question."""
+    def replace_once(old: str, new: str) -> None:
+        nonlocal html
+        if html.count(old)!=1:
+            raise RuntimeError('Diva comment patch anchor missing or duplicated: '+old[:80])
+        html=html.replace(old,new,1)
+
+    replace_once("function bridgeHandleEvent(item){", CHAT_JS + "\nfunction bridgeHandleEvent(item){")
+    # Display every comment in chat, but decide whether to speak BEFORE using
+    # the existing viewer cooldown, Groq, and special meme/rocket actions.
+    replace_once("    addChat(user,msg);\n    if(divaIsAydinlatMeme(msg))divaLaunchLightRocket();",
+                 "    addChat(user,msg);\n    if(divaCommentShouldSkip(msg,user))return;\n    if(divaIsAydinlatMeme(msg))divaLaunchLightRocket();")
+    # Only speak results from the queue once their answer context is attached.
+    replace_once("    speak(reply,item.mood);",
+                 "    divaQueueAnswerContext(item);speak(reply,item.mood);")
+    replace_once("})().catch(()=>{speak(item.text,item.mood);}).finally",
+                 "})().catch(()=>{divaQueueAnswerContext(item);speak(item.text,item.mood);}).finally")
+    replace_once("function speak(txt, mood='normal'){",
+                 "function speak(txt, mood='normal'){\n divaRenderAnswerContext();")
+    # Apply the same no-mention / no-laughter rule to manual test messages.
+    replace_once(" if(divaContainsBlockedWords(msg))return;",
+                 " if(divaContainsBlockedWords(msg)||divaCommentShouldSkip(msg,name,false))return;")
+    replace_once(" const reaction=await divaAskAIReaction(msg,name,'comment',fallback,mood);\n speak(reaction.reply,reaction.mood);",
+                 " const reaction=await divaAskAIReaction(msg,name,'comment',fallback,mood);\n divaQueueAnswerContext({kind:'comment',username:name,source:msg});speak(reaction.reply,reaction.mood);")
+    # The single panel is inside the existing answer/speech area; no new floating box.
+    replace_once('<div class="speech" id="speechBox"><label>',
+                 '<div class="speech" id="speechBox"><div id="divaAnsweredQuestion" hidden></div><label>')
+    replace_once('</head>',CHAT_CSS+'\n</head>')
+    return html
+
+
 @app.get("/")
 def home():
     html = enhanced_ai_page(enhanced_page(str(ROOT / "index.html")))
-    return HTMLResponse(enhanced_dashboard_page(enhanced_show_page(enhanced_connection_page(html))), headers={"Cache-Control": "no-store"})
+    return HTMLResponse(enhanced_comment_page(enhanced_dashboard_page(enhanced_show_page(enhanced_connection_page(html)))), headers={"Cache-Control": "no-store"})
 
 
 @app.post("/api/tts")
@@ -512,7 +572,7 @@ async def tts(body: SpeechRequest, x_diva_pin: str | None = Header(None)):
 @app.post("/api/ai/reply")
 async def ai_reply(body: AiReplyRequest, x_diva_pin: str | None = Header(None)):
     authorize(x_diva_pin)
-    if body.kind == "comment" and is_blocked_comment(body.message):
+    if body.kind == "comment" and (is_blocked_comment(body.message) or is_nonreply_comment(body.message)):
         raise HTTPException(422, "Bu yorum otomatik cevap kapsamına alınmadı.")
     return await generate_ai_reply(body)
 

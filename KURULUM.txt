@@ -1,25 +1,23 @@
-DIVA SHOW — HEDEF PANELİNİ GİZLE/GÖSTER
-====================================
+DIVA SHOW — AKILLI YORUM FILTRESI VE SORU ONIZLEMESI
+6 Kasim 2026
 
-Güncellenecek TEK dosya:
-- diva_dashboard.py
+KURULUM (telefon / GitHub):
+1) ZIP dosyasini indirip cikart.
+2) https://github.com/threedeetr/DivaShow deposunu ac.
+3) app.py ve diva_ai.py dosyalarini depodaki ayni adli dosyalarla degistir.
+4) Commit changes yap. Render Live olunca Diva Show'u yeniden ac/yenile.
+5) index.html, diva_dashboard.py, diva_voice.py, Render Environment ve API anahtarlari degismez.
 
-Kurulum (Android telefondan):
-1. ZIP'i indirip çıkar.
-2. https://github.com/threedeetr/DivaShow deposuna gir.
-3. diva_dashboard.py dosyasını yükleyip mevcut dosyayla değiştir.
-4. Commit changes yap.
-5. Render'da dağıtımın Live olmasını bekledikten sonra sayfayı yenile.
+Neler degisti?
+- Bir izleyici baska izleyiciden @ ile bahsediyorsa Diva bu yoruma sesli cevap vermez.
+- Ayni kullanicinin birebir ayni/anlamsal olarak ayni yazdigi yorumlar 10 dakika boyunca tekrar cevaplanmaz. Farkli izleyiciler engellenmez.
+- Sadece emoji, gulme/emojili gulme gibi yorumlara cevap verilmez. Normal sorunun sonunda emoji varsa cevap verilebilir.
+- Diva sesli cevap verirken yorumun sahibini ve orijinal mesajini soluk sekilde cevap balonunun USTUNDE gosterir. Gift, welcome, oto-sohbette soru satiri cikmaz.
+- mrb/mrhb, slm, sa, nbr, nsl, tmm, eyw, tsk/tşk, kib vb. kisaltmalar sistem tarafindan acilir. mrb ve nbr gibi kisa mesajlar icin yerel hazir cevap vardir, Groq kotasi kullanmaz.
+- Kisitli yorumlara AI API cagrisi gitmez; @ ve gulme/emoji API dogrudan cagrilsa da 422 dondurur.
 
-Kullanım:
-- Diva Show > Ayarlar > Yayın hedefi bölümüne git.
-- "👁️ Hedef panelini göster" düğmesine basınca hedef paneli görünür.
-- "🙈 Hedef panelini gizle" düğmesine basınca hedef paneli kaybolur.
-- İlk kurulumda varsayılan KAPALI'dır (önceki TikTok yaptırımları nedeniyle).
-- Seçimin aynı tarayıcıda kaydedilir; yenilediğinde korunur.
-- Panel gizliyken hedef adı, miktarı, sıfırlama ve hediye ilerlemesi korunur.
-- AI dudak sayacı, ses, TikTok bağlantısı ve diğer animasyonlara dokunulmadı.
-
-ÖNEMLİ:
-Panelin gizlenmesi TikTok yaptırımlarının kaldırılacağını GARANTİ ETMEZ.
-TikTok otomatik yayın/hediye talebi konusundaki diğer unsurları da değerlendirebilir.
+SINIRLAR:
+- Tekrar engeli tarayici belleginde oturumluk saklanir, sayfa yeniden acilinca sifirlanir.
+- Filtreler cok farkli yazilmis rastgele kahkaha mesajlarinin tamamini yakalamayabilir.
+- Gercek TikTok canli yayini testi yapilmadi. Python sunucu, tarayici, 320/390/430px yerlesim ve test yorumlari dogrulandi.
+- AI ve otomatik yayin ile TikTok kurallarina uyma sorumlulugu ayri olarak devam eder.
