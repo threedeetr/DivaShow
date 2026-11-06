@@ -7,12 +7,11 @@ reconciles each new server instance without double counting observed gifts.
 
 DASHBOARD_CSS = r'''<style id="diva-dashboard-css">
 /* A compact pair of HUD elements. Avoid touching the Diva figure or the original face sprites. */
-#divaAiChip{position:absolute;top:122px;right:16px;z-index:9;display:flex;align-items:center;gap:6px;
+#divaAiChip{position:absolute;top:142px;right:16px;z-index:9;display:flex;align-items:center;gap:6px;
   padding:5px 10px;border:1px solid #ffeab592;border-radius:17px;color:#fff7e9;
   background:linear-gradient(120deg,#71133edb,#a72e6bdc);box-shadow:0 3px 12px #53103575;
   font-size:12px;font-weight:900;line-height:1.15;pointer-events:auto}
 #divaAiChip .lips{font-size:18px;line-height:1}
-#divaAiChip .sub{font-size:9px;font-weight:700;color:#ffebcf}
 #divaGoalHud{position:absolute;z-index:8;bottom:82px;left:13px;right:13px;max-width:425px;margin-inline:auto;
   padding:9px 12px 8px;border-radius:16px;border:1px solid #ffead69c;
   background:linear-gradient(130deg,#601438dc,#8f245ad6);box-shadow:0 4px 19px #58133a66,inset 0 1px #ffffff32;color:white;
@@ -35,12 +34,12 @@ DASHBOARD_CSS = r'''<style id="diva-dashboard-css">
 .diva-goal-settings button.secondary{background:#6d215a;color:#fff5f5}
 .diva-goal-settings p{font-size:11px;line-height:1.45;color:#ffddea;margin:9px 0 0}
 #divaGoalSettingsStatus{min-height:15px;font-weight:800;color:#f6e3a3}
-@media(max-width:355px){#divaAiChip{top:110px;right:9px;padding:4px 8px;font-size:11px}#divaGoalHud{bottom:80px;left:8px;right:8px;padding:7px 10px;font-size:10px}}
-@media(max-height:700px){#divaAiChip{top:108px}#divaGoalHud{bottom:78px;padding:7px 10px}.diva-goal-track{height:7px}}
+@media(max-width:355px){#divaAiChip{top:130px;right:9px;padding:4px 8px;font-size:11px}#divaGoalHud{bottom:80px;left:8px;right:8px;padding:7px 10px;font-size:10px}}
+@media(max-height:700px){#divaAiChip{top:128px}#divaGoalHud{bottom:78px;padding:7px 10px}.diva-goal-track{height:7px}}
 </style>'''
 
 DASHBOARD_HUD = r'''<aside id="divaAiChip" aria-label="Başarılı Groq cevap sayısı" title="Bu Render oturumunda bugün üretilen başarılı Groq cevapları. Ücretsiz Groq hesap bakiyesi değildir.">
-  <span class="lips" aria-hidden="true">💋</span><strong id="divaAiCount">—</strong><span class="sub">AI cevap</span>
+  <span class="lips" aria-hidden="true">💋</span><strong id="divaAiCount">—</strong>
 </aside>
 <section id="divaGoalHud" aria-label="Canlı yayın hediye hedefi">
   <div class="diva-goal-head"><span id="divaGoalTitle">👠 Marka ayakkabı almak</span><span id="divaGoalAmount">0 / 1.000</span></div>

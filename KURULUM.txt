@@ -1,42 +1,28 @@
-DIVA SHOW — AI CEVAP SAYACI + CANLI HEDEF CUBUGU
+DIVA SHOW - AI SAYACI VE YORUM FILTRESI
 
-Neler eklendi:
-- Pembe Krallik'in altinda 💋 ve gunluk basarili Groq cevap sayisi.
-- Ayarlarda ayrintili Groq sunucu istek sayisi / programdaki gunluk guvenlik siniri.
-- Ekranin altinda canli yayin hediye hedefi (ornek: Marka ayakkabi almak / 1000).
-- Ayarlardan hedef yazisini ve hedef puanini degistirme, ilerlemeyi sifirlama.
-- Hediye geldikce otomatik artan hedef cubugu ve hedef tamamlandi yazisi.
-- Render yeniden baslasa bile ayni tarayicida izlenen hediyeleri yeniden eklememeye calisan yerel kayit.
+YENILIKLER
+1) Pembe Krallik altindaki AI sayaci biraz daha asagiya tasindi.
+2) "AI cevap" etiketi kaldirildi; sadece dudak emojisi ve sayi gorunuyor.
+3) Turkce kufur/agır cinsel kelimeler iceren TikTok yorumlari sessizce atlanir:
+   yorum kutusuna dusmez, seslendirilmez, Groq istegi olusturmaz.
+4) "ama", "amca", "gotur", "sikayet" gibi normal kelimeler engellenmez.
+5) Yorum filtrasyonu listeye dayalidir; tum bicimleri ve harf aralarina
+   eklenen isaretlerle gizlenmis kelimeleri yakalama garantisi yoktur.
 
-GITHUB:
-1. ZIP'i telefonunda ayikla.
-2. https://github.com/threedeetr/DivaShow adresine gir.
-3. ZIP'teki app.py, diva_ai.py, diva_dashboard.py, manifest.webmanifest,
-   icon-192.png ve icon-512.png dosyalarini repo kokune yukle.
-4. GitHub "Commit changes" ile onayla.
-5. Render > Live ve sayfayi yenile.
+YUKLEME (SADECE 2 DOSYA)
+1) GitHub > threedeetr/DivaShow deposunu ac.
+2) Bu ZIP icindeki app.py ve diva_dashboard.py dosyalarini
+   depodaki ayni adli dosyalarin ustune yukle.
+3) Commit changes yap.
+4) Render "Live" olunca Diva Show sitesini yenile.
 
-NOT: index.html ve diva_voice.py DEGISMIYOR. Bu paket bir onceki
-'Ben Diva' kimlik duzeltmesi, fuze efekti ve uygulama (PWA)
-yapilandirmasini da korur.
+DIGER DOSYALARA DOKUNMA:
+index.html, diva_ai.py, diva_voice.py, manifest.webmanifest ayni kalir.
+Euler Stream, Groq API anahtari ve Render Environment ayarlarini degistirme.
 
-AYARLAR:
-Diva Show > disli simgesi > Yayin hedefi.
-"Hedefin adi" ve "Hedef icin gereken jeton / hediye puani" alanlarini doldur.
-"Hedefi kaydet" mevcut ilerlemeyi korur.
-"Ilerlemeyi sifirla" yeni hedef sayimina sifirdan baslatir.
-
-DIKKAT:
-- Hedefin saydigi deger TikTokLive hediye elmas degeri x adettir.
-  Gercek TikTok Coin/jeton bakiyesi, para, bagis tutari veya kazanc DEGILDIR.
-  Degeri bilinmeyen hediyeler eklenmez. Demo hediyesi etkilemez.
-- AI sayaci sadece Groq'un basarili cevaplarini sayar; hazir cevaplari
-  ve sabit karakter kimligi cevaplarini saymaz. Otosohbet ve hediyeler icin
-  Groq basarili cevaplari da dahildir. Limit 700, yerel program guvenlik siniridir;
-  Groq'un resmi kalan kotasi DEGILDIR.
-- Sayaclar gunluk UTC'ye gore sifirlanir; Render ucretsiz sunucu yeniden basladiginda
-  sunucunun sayaclari da sifirlanir. Ayni telefondaki tarayici verileri tutulursa
-  gorulen AI cevaplari/hediye puanlari tarayicida korunmaya calisilir.
-- Telefonun tarayici verilerini silersen biriken veriler kaybolabilir.
-- Bu paket canli TikTok/Euler veya Microsoft Groq servislerine test ortamini
-  kullanarak dogrudan baglanmadi. Yerel simule testleri basarili.
+TEST EDILENLER
+- Python sozdizimi ve sunucu /health, PIN
+- TikTok olay simulasyonu: uygun/engelli yorumlar
+- Groq cevap API'sinde engellenen yorumlarin kota tuketmemesi
+- Mobil Chromium 320, 390, 430 px: UI ve JS, sayac tasma kontrolu
+- Son canli TikTok ve gercek Groq servisi bu ortamda denenmedi.

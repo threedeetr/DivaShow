@@ -101,6 +101,26 @@ def clean_text(value: object, length: int) -> str:
     return re.sub(r"[\x00-\x1f\x7f]+", " ", str(value or "")).strip()[:length]
 
 
+# Filter only explicit standalone vulgar words and common inflections.
+# Avoid false matches in "ama", "amca", "götür", "şikayet" and similar words.
+import unicodedata
+
+_BLOCKED_WORD = re.compile(
+    r"^(?:"
+    r"am(?:i|ina|ini|im|dan|da|cik|cigi|cigini)?|amk|amq|aq|aminakoy(?:im|ayim|sun|sunuz|arim)|"
+    r"got(?:u|un|une|unu|um|umuz|ten|te|lu|luge|ler|leri|lerini|unden|unde|unun)?|"
+    r"sik(?:mek|me|il|im|in|i|er|erim|eriz|erler|tik|tim|ti|tigi|tir|tire|tirin|tirsin|tiniz|tireyim|eyim|icem|iyorum|iyor)?|"
+    r"meme(?:m|mi|me|n|ni|si|sini|sinde|ler|leri|lerini|lerin|nin|ye|de|den)?|orospu(?:su|lar|lugu|luk)?|yar+ak(?:i|im|in|ini|lar|lari)?|pic(?:ler|in|ligi)?"
+    r")$"
+)
+
+
+def is_blocked_comment(text: object) -> bool:
+    raw = str(text or "").casefold().replace("ı", "i")
+    plain = "".join(ch for ch in unicodedata.normalize("NFKD", raw) if not unicodedata.combining(ch))
+    return any(_BLOCKED_WORD.fullmatch(token) for token in re.findall(r"[a-z0-9]+", plain))
+
+
 def add_event(event_type: str, **fields: object) -> dict:
     global sequence
     sequence += 1
@@ -158,7 +178,7 @@ async def live_worker(name: str, my_generation: int) -> None:
             if my_generation != generation:
                 return
             message = clean_text(getattr(event, "comment", ""), 240)
-            if message:
+            if message and not is_blocked_comment(message):
                 add_event("comment", username=username_of(getattr(event, "user", None)), text=message)
 
         @live.on(RoomUserSeqEvent)
@@ -353,6 +373,21 @@ def enhanced_connection_page(html: str) -> str:
       : await divaAskAIReaction(item.source,item.username,item.kind||'comment',item.text,item.mood||'normal');
     const reply=reaction.reply;
     item.mood=reaction.mood||item.mood||'normal';""", 1)
+    # Defense in depth: manual input and queued comments also skip these messages.
+    js_filter = r"""function divaContainsBlockedWords(value){
+  const cleaned=String(value||'').toLocaleLowerCase('tr-TR').replace(/ı/g,'i')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const words=cleaned.match(/[a-z0-9]+/g)||[];
+  const bad=/^(?:am(?:i|ina|ini|im|dan|da|cik|cigi|cigini)?|amk|amq|aq|aminakoy(?:im|ayim|sun|sunuz|arim)|got(?:u|un|une|unu|um|umuz|ten|te|lu|luge|ler|leri|lerini|unden|unde|unun)?|sik(?:mek|me|il|im|in|i|er|erim|eriz|erler|tik|tim|ti|tigi|tir|tire|tirin|tirsin|tiniz|tireyim|eyim|icem|iyorum|iyor)?|meme(?:m|mi|me|n|ni|si|sini|sinde|ler|leri|lerini|lerin|nin|ye|de|den)?|orospu(?:su|lar|lugu|luk)?|yar+ak(?:i|im|in|ini|lar|lari)?|pic(?:ler|in|ligi)?)$/;
+  return words.some(w=>bad.test(w));
+}
+"""
+    hook="function bridgeHandleEvent(item){"
+    assert html.count(hook)==1, "Diva comment guard anchor missing"
+    html=html.replace(hook,js_filter+hook+"\n  if(item.type==='comment' && divaContainsBlockedWords(item.text))return;",1)
+    manual="async function divaManualAI(msg,name,mood){"
+    assert html.count(manual)==1, "Diva manual AI guard anchor missing"
+    html=html.replace(manual,manual+"\n if(divaContainsBlockedWords(msg))return;",1)
     return html
 
 
@@ -477,6 +512,8 @@ async def tts(body: SpeechRequest, x_diva_pin: str | None = Header(None)):
 @app.post("/api/ai/reply")
 async def ai_reply(body: AiReplyRequest, x_diva_pin: str | None = Header(None)):
     authorize(x_diva_pin)
+    if body.kind == "comment" and is_blocked_comment(body.message):
+        raise HTTPException(422, "Bu yorum otomatik cevap kapsamına alınmadı.")
     return await generate_ai_reply(body)
 
 
