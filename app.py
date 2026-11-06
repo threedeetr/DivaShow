@@ -19,7 +19,7 @@ from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.responses import FileResponse, JSONResponse, HTMLResponse
 from pydantic import BaseModel, Field
 from diva_voice import SpeechRequest, synthesize_emel, enhanced_page
-from diva_ai import AiReplyRequest, generate_ai_reply, enhanced_ai_page, usage_snapshot
+from diva_ai import AiReplyRequest, generate_ai_reply, enhanced_ai_page, usage_snapshot, diva_echo_is_unsafe
 from diva_dashboard import enhanced_dashboard_page
 from diva_music import enhanced_music_page
 
@@ -205,7 +205,8 @@ async def live_worker(name: str, my_generation: int) -> None:
                 return
             message = clean_text(getattr(event, "comment", ""), 240)
             if message and not is_blocked_comment(message):
-                add_event("comment", username=username_of(getattr(event, "user", None)), text=message)
+                user = getattr(event, "user", None)
+                add_event("comment", username=username_of(user), display_name=welcome_name(user), text=message)
 
         @live.on(RoomUserSeqEvent)
         async def on_viewer_count(event: object) -> None:
@@ -523,7 +524,7 @@ def enhanced_show_page(html: str) -> str:
     html=html.replace(end_tag,SHOW_JS+"\n"+end_tag,1)
     return html
 
-CHAT_JS = "// Diva Show: decide which viewer comments deserve a spoken answer.\nconst divaRecentAnswers=new Map();\nconst DIVA_REPEAT_WINDOW_MS=10*60*1000;\nfunction divaCompactText(value){\n return String(value||'').normalize('NFKC').toLocaleLowerCase('tr-TR')\n  .replace(/[^\\p{L}\\p{N}\\s]/gu,' ').replace(/\\s+/g,' ').trim();\n}\nfunction divaDropEmoji(value){\n return String(value||'').replace(/[0-9#*]\\uFE0F?\\u20E3/gu,'')\n   .replace(/[\\p{Extended_Pictographic}\\p{Regional_Indicator}\\p{Emoji_Modifier}\\uFE0F\\uFE0E\\u200D\\u20E3]/gu,'');\n}\nfunction divaLaughOnly(value){\n const only=String(value||'').toLocaleLowerCase('tr-TR')\n  .replace(/[\\s.,!?…:;~\\-_/]+/g,'').trim();\n if(only.length<4||only.length>90)return false;\n if(/^(?:ha|he|hi|hı|hu|hü|ho|hö){2,}h{0,2}$/u.test(only))return true;\n // Keyboard-smash Turkish laughter: hshshah, kakskskskk, sjsjsj, asdasd...\n if(/^[haksjd]{5,}$/u.test(only)){\n   return (only.match(/ha|ah|hs|sh|ks|sk|sj|js|kd|dk|as|sa|sd|ds|hh/gu)||[]).length>=2;\n }\n return false;\n}\nfunction divaCommentShouldSkip(message,username,remember=true){\n const raw=String(message||'').trim();\n if(!raw||raw.includes('@'))return true; // chatting with another viewer\n const noEmoji=divaDropEmoji(raw).trim();\n if(!noEmoji.replace(/[.,!?…:;~+_\\-*()\\s]/g,''))return true; // just emoji/punctuation\n if(divaLaughOnly(noEmoji))return true;\n if(!remember)return false;\n const normalized=divaCompactText(raw);\n if(!normalized)return true;\n const key=divaCompactText(username||'izleyici')+'\\u0000'+normalized;\n const now=Date.now();\n const previous=divaRecentAnswers.get(key);\n if(previous!==undefined&&now-previous<DIVA_REPEAT_WINDOW_MS)return true;\n divaRecentAnswers.delete(key);\n divaRecentAnswers.set(key,now);\n if(divaRecentAnswers.size>400){\n   for(const [k,v] of divaRecentAnswers){if(now-v>=DIVA_REPEAT_WINDOW_MS)divaRecentAnswers.delete(k);}\n   while(divaRecentAnswers.size>400)divaRecentAnswers.delete(divaRecentAnswers.keys().next().value);\n }\n return false;\n}\n// The question is displayed only while Diva is answering that comment.\nlet divaNextAnswerContext=null;\nfunction divaQueueAnswerContext(item){\n divaNextAnswerContext=(item&&(item.kind==='comment'||item.kind==='meme')&&item.source)\n   ? {user:String(item.username||'İzleyici').slice(0,32),question:String(item.source).slice(0,200)} : null;\n}\nfunction divaRenderAnswerContext(){\n const el=document.getElementById('divaAnsweredQuestion');\n const ctx=divaNextAnswerContext;\n divaNextAnswerContext=null;\n if(!el)return;\n el.hidden=!ctx;\n el.textContent=ctx?'💬 '+ctx.user+': “'+ctx.question+'”':'';\n}\n"
+CHAT_JS = "// Diva Show: decide which viewer comments deserve a spoken answer.\nconst divaRecentAnswers=new Map();\nconst DIVA_REPEAT_WINDOW_MS=10*60*1000;\nfunction divaCompactText(value){\n return String(value||'').normalize('NFKC').toLocaleLowerCase('tr-TR')\n  .replace(/[^\\p{L}\\p{N}\\s]/gu,' ').replace(/\\s+/g,' ').trim();\n}\nfunction divaDropEmoji(value){\n return String(value||'').replace(/[0-9#*]\\uFE0F?\\u20E3/gu,'')\n   .replace(/[\\p{Extended_Pictographic}\\p{Regional_Indicator}\\p{Emoji_Modifier}\\uFE0F\\uFE0E\\u200D\\u20E3]/gu,'');\n}\nfunction divaLaughOnly(value){\n const only=String(value||'').toLocaleLowerCase('tr-TR')\n  .replace(/[\\s.,!?…:;~\\-_/]+/g,'').trim();\n if(only.length<4||only.length>90)return false;\n if(/^(?:ha|he|hi|hı|hu|hü|ho|hö){2,}h{0,2}$/u.test(only))return true;\n // Keyboard-smash Turkish laughter: hshshah, kakskskskk, sjsjsj, asdasd...\n if(/^[haksjd]{5,}$/u.test(only)){\n   return (only.match(/ha|ah|hs|sh|ks|sk|sj|js|kd|dk|as|sa|sd|ds|hh/gu)||[]).length>=2;\n }\n return false;\n}\nfunction divaCommentShouldSkip(message,username,remember=true){\n const raw=String(message||'').trim();\n if(!raw||raw.includes('@'))return true; // chatting with another viewer\n if(typeof divaEchoUnsafe==='function'&&divaEchoUnsafe(raw))return true; // never repeat an abusive phrase\n const noEmoji=divaDropEmoji(raw).trim();\n if(!noEmoji.replace(/[.,!?…:;~+_\\-*()\\s]/g,''))return true; // just emoji/punctuation\n if(divaLaughOnly(noEmoji))return true;\n if(!remember)return false;\n const normalized=divaCompactText(raw);\n if(!normalized)return true;\n const key=divaCompactText(username||'izleyici')+'\\u0000'+normalized;\n const now=Date.now();\n const previous=divaRecentAnswers.get(key);\n if(previous!==undefined&&now-previous<DIVA_REPEAT_WINDOW_MS)return true;\n divaRecentAnswers.delete(key);\n divaRecentAnswers.set(key,now);\n if(divaRecentAnswers.size>400){\n   for(const [k,v] of divaRecentAnswers){if(now-v>=DIVA_REPEAT_WINDOW_MS)divaRecentAnswers.delete(k);}\n   while(divaRecentAnswers.size>400)divaRecentAnswers.delete(divaRecentAnswers.keys().next().value);\n }\n return false;\n}\n// The question is displayed only while Diva is answering that comment.\nlet divaNextAnswerContext=null;\nfunction divaQueueAnswerContext(item){\n divaNextAnswerContext=(item&&(item.kind==='comment'||item.kind==='meme')&&item.source)\n   ? {user:String(item.username||'İzleyici').slice(0,32),question:String(item.source).slice(0,200)} : null;\n}\nfunction divaRenderAnswerContext(){\n const el=document.getElementById('divaAnsweredQuestion');\n const ctx=divaNextAnswerContext;\n divaNextAnswerContext=null;\n if(!el)return;\n el.hidden=!ctx;\n el.textContent=ctx?'💬 '+ctx.user+': “'+ctx.question+'”':'';\n}\n"
 CHAT_CSS = '<style id="diva-answered-question-css">\n#divaAnsweredQuestion{display:block;max-width:94%;margin:0 auto 8px;padding:6px 10px;\n font-size:clamp(11px,2.9vw,14px);line-height:1.35;font-weight:600;opacity:.70;\n color:#fffdf8;text-shadow:0 1px 5px #521336;overflow-wrap:anywhere;\n display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;\n text-align:center}\n#divaAnsweredQuestion[hidden]{display:none!important}\n</style>'
 
 def enhanced_comment_page(html: str) -> str:
@@ -535,6 +536,14 @@ def enhanced_comment_page(html: str) -> str:
         html=html.replace(old,new,1)
 
     replace_once("function bridgeHandleEvent(item){", CHAT_JS + "\nfunction bridgeHandleEvent(item){")
+    # Prefer the public TikTok display name for explicit "say my name" requests,
+    # while retaining unique_id for duplicate/cooldown tracking.
+    replace_once("const user=String(item.username||'İzleyici').slice(0,34);",
+                 "const user=String(item.username||'İzleyici').slice(0,34);\n    const spokenName=String(item.display_name||user).slice(0,28);")
+    replace_once("bridgeOffer({text:reply,mood,source:msg,username:user,kind:'comment'});",
+                 "bridgeOffer({text:reply,mood,source:msg,username:user,displayName:spokenName,kind:'comment'});")
+    replace_once(": await divaAskAIReaction(item.source,item.username,item.kind||'comment',item.text,item.mood||'normal');",
+                 ": await divaAskAIReaction(item.source,item.username,item.kind||'comment',item.text,item.mood||'normal',item.displayName||'');")
     # Display every comment in chat, but decide whether to speak BEFORE using
     # the existing viewer cooldown, Groq, and special meme/rocket actions.
     replace_once("    addChat(user,msg);\n    if(divaIsAydinlatMeme(msg))divaLaunchLightRocket();",
@@ -573,7 +582,7 @@ async def tts(body: SpeechRequest, x_diva_pin: str | None = Header(None)):
 @app.post("/api/ai/reply")
 async def ai_reply(body: AiReplyRequest, x_diva_pin: str | None = Header(None)):
     authorize(x_diva_pin)
-    if body.kind == "comment" and (is_blocked_comment(body.message) or is_nonreply_comment(body.message)):
+    if body.kind == "comment" and (is_blocked_comment(body.message) or is_nonreply_comment(body.message) or diva_echo_is_unsafe(body.message)):
         raise HTTPException(422, "Bu yorum otomatik cevap kapsamına alınmadı.")
     return await generate_ai_reply(body)
 

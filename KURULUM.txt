@@ -1,25 +1,25 @@
-DIVA SHOW — ARKA PLAN MÜZİĞİ GÜNCELLEMESİ
+DIVA SHOW — SESLİ TEKRAR / ADIMI SÖYLE (06.11.2026)
 
-GitHub: https://github.com/threedeetr/DivaShow
+Kurulum:
+1. ZIP'i telefonda çıkarın.
+2. https://github.com/threedeetr/DivaShow deposuna girin.
+3. Yalnızca app.py ve diva_ai.py dosyalarını ana dizinde mevcut dosyalarla değiştirin.
+4. Commit changes yapın. Render yeniden Live olunca sayfayı yenileyin.
 
-ZIP'ten yalnızca şu 4 dosyayı GitHub deponun ana dizinine yükle:
-  1. app.py                  (mevcut dosyanın yerine)
-  2. diva_ai.py              (son akıllı yorum sürümü; uyumluluk için)
-  3. diva_music.py           (yeni dosya)
-  4. diva-background.mp3     (yeni dosya: gönderdiğin 59 sn'lik müzik)
+Yeni örnekler:
+- "Ahmet, Esra seni seviyormuş desene" => Ahmet, Esra seni seviyormuş
+- "Şunu de: Bu akşam çok güzelsin" => Bu akşam çok güzelsin
+- "Adımı söyler misin?" => İzleyicinin TikTok görünen adı (yoksa kullanıcı adı)
+- "Adımla beraber şunu de: Seni özledim" => [görünen ad], Seni özledim
 
-ZIP içindeki KURULUM.txt dosyasını GitHub'a yüklemene gerek yok.
-index.html, diva_dashboard.py, diva_voice.py, PIN ve Groq ayarları değişmeyecek.
+Güvenlik:
+- Küfür, aşağılayıcı ifade, tehdit, kişisel bilgi ya da hediye gönderme
+  talebi içeren sesli tekrarlama komutları konuşma kuyruğuna alınmaz.
+- Mevcut @ etiketli mesaj, emoji ve aynı yorumun tekrarını engelleme
+  ayarları korunur.
+- Güvenli hazır tekrarlar Groq kotasını tüketmez.
+- Bunun dil tabanlı bir filtre olduğu, tüm yaratıcı yazılışları yakalama
+  garantisi taşımadığı unutulmamalıdır.
 
-Commit changes yap. Render Live olunca Diva Show sitesini yeniden aç.
-Alt kısımda, Oto sohbet butonunun yanında "🎵 Müzik: Kapalı" butonu görünecek.
-Butona basınca müzik açılır; tekrar basınca durur. Müzik sona gelince döner.
-Diva konuşurken müzik sesi otomatik azalır, konuşma bitince geri yükselir.
-
-ÖNEMLİ:
-- Android Chrome ilk müziği başlatmak için kullanıcı dokunuşu gerektirir.
-- Sayfa yenilenirse, güvenli ve tarayıcı uyumlu olması için müzik kapalı başlar.
-- Müzik yayının izleyicilerine gidiyor mu, TikTok ekran paylaşımı/ses yakalama
-  ayarlarıyla gerçek cihazda kontrol et; tüm telefonlarda aynı davranmayabilir.
-- TikTok LIVE'da izin sahibi olmadığın kayıtların çalınması telif kısıtlaması
-  ve sessize alma riski doğurur. Kullandığın müzik için yayın iznin olduğundan emin ol.
+Diğer dosyaları değiştirmeyin; müzik, hedef paneli, karakter, mimikler,
+Emel Neural ve GitHub/Render ayarları aynen kalır.
