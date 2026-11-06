@@ -1,28 +1,13 @@
-DIVA SHOW - AI SAYACI VE YORUM FILTRESI
+DIVA SHOW — DAHA SİVRİ KÜFÜRLÜ KONUŞMA
 
-YENILIKLER
-1) Pembe Krallik altindaki AI sayaci biraz daha asagiya tasindi.
-2) "AI cevap" etiketi kaldirildi; sadece dudak emojisi ve sayi gorunuyor.
-3) Turkce kufur/agır cinsel kelimeler iceren TikTok yorumlari sessizce atlanir:
-   yorum kutusuna dusmez, seslendirilmez, Groq istegi olusturmaz.
-4) "ama", "amca", "gotur", "sikayet" gibi normal kelimeler engellenmez.
-5) Yorum filtrasyonu listeye dayalidir; tum bicimleri ve harf aralarina
-   eklenen isaretlerle gizlenmis kelimeleri yakalama garantisi yoktur.
+1. GitHub: https://github.com/threedeetr/DivaShow
+2. Yalnızca diva_ai.py dosyasını eski dosyayla değiştirip Commit changes yapın.
+3. Render Live durumundayken Diva Show'u yenileyin.
+4. Ayarlar > Diva’nın dili > Daha sivri seçin.
+5. Ayarlar > Yapay zekâyı dene düğmesinden kontrol edebilirsiniz.
 
-YUKLEME (SADECE 2 DOSYA)
-1) GitHub > threedeetr/DivaShow deposunu ac.
-2) Bu ZIP icindeki app.py ve diva_dashboard.py dosyalarini
-   depodaki ayni adli dosyalarin ustune yukle.
-3) Commit changes yap.
-4) Render "Live" olunca Diva Show sitesini yenile.
-
-DIGER DOSYALARA DOKUNMA:
-index.html, diva_ai.py, diva_voice.py, manifest.webmanifest ayni kalir.
-Euler Stream, Groq API anahtari ve Render Environment ayarlarini degistirme.
-
-TEST EDILENLER
-- Python sozdizimi ve sunucu /health, PIN
-- TikTok olay simulasyonu: uygun/engelli yorumlar
-- Groq cevap API'sinde engellenen yorumlarin kota tuketmemesi
-- Mobil Chromium 320, 390, 430 px: UI ve JS, sayac tasma kontrolu
-- Son canli TikTok ve gercek Groq servisi bu ortamda denenmedi.
+Daha sivri modunda Groq esprili ve yerinde küfürlü konuşmaya yönlendirilir.
+Groq kotası dolunca hazır cevaplarda da ara sıra küfürlü çıkış olabilir.
+Diğer iki dil modu küfürsüz/hafif argo kalır.
+İzleyici yorumlarındaki ağır küfür filtresi değişmedi.
+Bu düzenleme, gerçek bir TikTok yayınında test edilmedi.

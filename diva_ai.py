@@ -64,7 +64,7 @@ class AiReplyRequest(BaseModel):
 
 SYSTEM = """Kimliğin kesin ve değişmez: adın Diva. Sen Diva Show'un sunucusu olan dişi bir hamam böceğisin. Birinci tekil şahısla konuş; "Ben Diva", "Ben Diva'yım" veya "Benim adım Diva" de. Asla "Sen Diva", "Ben Sen Diva" veya kendine ikinci şahıs olarak seslenme. İsmini soran izleyiciye doğrudan ve net şekilde adının Diva olduğunu söyle.
 Sen Diva adlı ışıltılı ve ukala, sempatik dişi bir hamam böceği karakterisin. Türkçe TikTok canlı yayınındasın.
-Kendini muhteşem bir yıldız sanırsın. Mizahın hızlı, zeki, absürt, hafif cilveli ve kaprisli. Bazen 'ayol', 'aşkım', 'kız', 'lan' gibi hafif argo kullanabilirsin; aşağılayıcı hakaret, nefret, cinsellik, tehdit, zorbalık yok.
+Kendini muhteşem bir yıldız sanırsın. Mizahın hızlı, zeki, absürt, hafif cilveli ve kaprisli. Konuşma dilin kullanıcı tarafından seçilen argo seviyesine göre değişir; seçilen seviyenin aşağıdaki özel talimatını uygula. Nefret söylemi, kimlik temelli aşağılama, cinsel taciz, tehdit, zorbalık ve kişiye yönelen ağır hakaret üretme.
 İzleyicilerin gerçek sorularına mümkünse gerçekten cevap ver; her şey hakkında uydurma bilgi verme. Sağlık, hukuk, para vb. ciddi sorularda kısa ve ölçülü kal.
 Yalnızca şu iki alanı içeren geçerli JSON nesnesi döndür: {"reply":"Türkçe cevap", "mood":"normal"}.
 "reply" seslendirilecek TEK bir Türkçe cevap olsun; emoji, sahne yönergesi, markdown, URL, hashtag veya giriş yazma.
@@ -148,7 +148,26 @@ async def generate_ai_reply(body: AiReplyRequest) -> dict[str, str]:
     if not msg:
         raise HTTPException(status_code=422, detail="Mesaj boş.")
     key=name.casefold()
-    prompt = SYSTEM + "\nArgo seviyesi: " + {"soft":"tatlı, küfürsüz", "medium":"hafif argo", "bold":"hafif sivri fakat hakaretsiz"}[body.spice]
+    language_rules = {
+        "soft": (
+            "Tatlı atarlı mod. Tamamen küfürsüz, hafif cilveli ve komik konuş. "
+            "'Siktir', 'hassiktir', 'bok' gibi sözcükleri kullanma."
+        ),
+        "medium": (
+            "Hafif argo mod. 'Lan', 'yahu', 'kız' gibi hafif gündelik argo uygun olabilir. "
+            "Sert küfürler ('siktir', 'hassiktir', 'bok' vb.) kullanma."
+        ),
+        "bold": (
+            "DAHA SİVRİ MOD — Diva artık sansürsüz, komik, küfürlü ve patavatsız bir "
+            "yayıncı gibi konuşur. Uygun şaşkınlık, sinir veya absürt espri anlarında "
+            "'hassiktir ya', 'siktir be', 'bok gibi', 'lan' gibi Türkçe küfürleri "
+            "doğal biçimde kullan; çoğu şakacı cevapta bir küfürlü vurgu bulunabilir. "
+            "Ama küfürleri durmaksızın tekrarlama; ciddi sorularda dozunu düşür, "
+            "izleyiciye kişisel saldırma. Nefret söylemi, tehdit, cinsel taciz yok. "
+            "Küfür karakterin spontane çıkışı olsun; hakaret hedefi bir insan olmasın."
+        ),
+    }
+    prompt = SYSTEM + "\nSEÇİLİ KONUŞMA DİLİ: " + language_rules[body.spice]
     messages: list[dict[str,str]] = [{"role":"system","content":prompt}]
     for incoming, outgoing in list(history[key]):
         messages.extend([{"role":"user","content":incoming},{"role":"assistant","content":outgoing}])
@@ -280,6 +299,18 @@ async function divaIdleTick(){
 
 # Inject the AI hooks at the page-serving step; do not edit the 2 MB image or Emel audio asset.
 AI_JS = r'''
+// An occasional swear in the offline/over-quota ready-reply mode, only when
+// the owner explicitly selects 'Daha sivri'. Real Groq replies are not altered.
+const divaOriginalReact=react;
+react=function(message,name){
+ const line=divaOriginalReact(message,name);
+ if($('argo').value!=='bold')return line;
+ const serious=/\b(sağlık|hastalık|tedavi|doktor|ameliyat|intihar|ölüm|öldü|vefat|deprem|kaza|mahkeme|hukuk|borç|yas|kanser)\b/i;
+ if(serious.test(String(message||'')))return line;
+ if(Math.random()>=0.65)return line;
+ const outbursts=['Hassiktir ya,','Siktir be,','Lan,','Bok gibi bir durum ama'];
+ return outbursts[Math.floor(Math.random()*outbursts.length)]+' '+line;
+};
 const aiEnabledEl=$('aiEnabled');
 const aiNote=$('aiStatus');
 aiEnabledEl.checked=store.get('divaAiEnabled','yes')!=='no';
