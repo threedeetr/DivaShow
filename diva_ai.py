@@ -21,11 +21,15 @@ AI_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
 API_URL = "https://api.groq.com/openai/v1/chat/completions"
 MAX_DAILY = 700  # deliberate margin below the provider's published daily limit
 MAX_MINUTE = 16  # well below the provider's published requests/minute
+MAX_IDLE_DAILY = 220  # reserve the rest of the daily quota for real viewers
+MIN_IDLE_API_GAP = 90.0  # server-side rate limit even across browser reloads
 
 AI_LOCK = asyncio.Lock()
 AI_SEMAPHORE = asyncio.Semaphore(2)
 usage_day = ""
 usage_count = 0
+idle_usage_count = 0
+idle_last_request_at = 0.0
 usage_timestamps: deque[float] = deque(maxlen=100)
 history: dict[str, deque[tuple[str, str]]] = defaultdict(lambda: deque(maxlen=3))
 
@@ -48,13 +52,14 @@ def _clean(text: str, limit: int) -> str:
     return re.sub(r"[\x00-\x1f\x7f]", " ", str(text)).strip()[:limit]
 
 
-async def _reserve_quota() -> None:
-    global usage_day, usage_count
+async def _reserve_quota(kind: str = "comment") -> None:
+    global usage_day, usage_count, idle_usage_count, idle_last_request_at
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     now = time.monotonic()
     async with AI_LOCK:
         if today != usage_day:
-            usage_day, usage_count = today, 0
+            usage_day, usage_count, idle_usage_count = today, 0, 0
+            idle_last_request_at = 0.0
             usage_timestamps.clear()
         while usage_timestamps and now-usage_timestamps[0] > 60:
             usage_timestamps.popleft()
@@ -62,6 +67,13 @@ async def _reserve_quota() -> None:
             raise HTTPException(status_code=429, detail="Günlük ücretsiz yapay zekâ sınırına ulaşıldı; hazır cevaplar devam edebilir.")
         if len(usage_timestamps) >= MAX_MINUTE:
             raise HTTPException(status_code=429, detail="Yapay zekâ kısa süreliğine yoğun; hazır cevaplar kullanılabilir.")
+        if kind == "idle":
+            if idle_usage_count >= MAX_IDLE_DAILY:
+                raise HTTPException(status_code=429, detail="Otosohbetin günlük ücretsiz Groq payı doldu; hazır espriler devam eder.")
+            if idle_last_request_at and now - idle_last_request_at < MIN_IDLE_API_GAP:
+                raise HTTPException(status_code=429, detail="Otosohbet için kısa bir mola gerekiyor; hazır espri kullanılabilir.")
+            idle_usage_count += 1
+            idle_last_request_at = now
         usage_count += 1
         usage_timestamps.append(now)
 
@@ -70,7 +82,7 @@ async def generate_ai_reply(body: AiReplyRequest) -> dict[str, str]:
     api_key=os.environ.get("GROQ_API_KEY", "").strip()
     if not api_key:
         raise HTTPException(status_code=503, detail="Yapay zekâ anahtarı ayarlanmamış; hazır cevaplara dönüldü.")
-    await _reserve_quota()
+    await _reserve_quota(body.kind)
     name = _clean(body.username, 32) or "İzleyici"
     msg = _clean(body.message, 240)
     if not msg:
@@ -83,7 +95,10 @@ async def generate_ai_reply(body: AiReplyRequest) -> dict[str, str]:
     if body.kind == "gift":
         task = f"{name} şu hediyeyi gönderdi: {msg}. Hediyeye teşekkür eden özgün ve komik kısa bir tepki ver."
     elif body.kind == "idle":
-        task = "Sohbet sessiz. Kısa, komik ve yaratıcı bir sohbet başlat: " + msg
+        task = ("Sohbet bir süredir sessiz. İzleyici veya hediye varmış gibi davranmadan "
+                "yayıncı olarak kendiliğinden özgün, kısa ve eğlenceli bir konu aç. "
+                "İzleyenlere hafif bir soru sorabilir veya absürt bir espri yapabilirsin. "
+                "Konu önerisi: " + msg)
     else:
         task = f"İzleyici {name} şöyle yazdı: {msg}"
     messages.append({"role":"user", "content":task})
@@ -118,6 +133,75 @@ async def generate_ai_reply(body: AiReplyRequest) -> dict[str, str]:
     except (httpx.TimeoutException, httpx.HTTPError, ValueError, KeyError, IndexError):
         raise HTTPException(status_code=503, detail="Yapay zekâ gecikti; hazır esprilere geçiliyor.")
 
+
+# Server-served JS: this replaces the small original idle timer, no HTML asset changes.
+IDLE_JS = r'''let divaIdleLastViewerAt=Date.now();
+let divaIdleLastRequestAt=0;
+let divaIdleBusy=false;
+let divaIdleToken=0;
+let divaIdleTopicIndex=0;
+const divaIdleSilenceMs=35000; // do not interrupt active audience conversation
+const divaIdleAiGapMs=97000;  // preserve free Groq requests for real comments and gifts
+const divaIdleTopics=[
+ 'Pembe krallığının günlük komik bir kuralını uydur',
+ 'Hamam böceği olmanın lüks hayatla komik bir çelişkisini anlat',
+ 'Sohbettekilerin cevaplamak isteyeceği eğlenceli bir ikilem sor',
+ 'Dedikoducu ama kimseyi hedef almayan komik bir laf söyle',
+ 'Kraliçelik taslayıp kendinle de dalga geçtiğin kısa bir replik üret',
+ 'Antenlerinle ilgili absürt bir gözlem yap',
+ 'Sohbetin seçebileceği iki saçma seçenek sun',
+ 'Gece mutfağında yaşayan bir divanın komik gündemini anlat',
+ 'Pembe şalını överken kendinle dalga geç',
+ 'Günlük hayatla ilgili kısa ve eğlenceli bir soru sor',
+ 'Bugünün uydurma hamam böceği burcunu esprili yorumla',
+ 'Güzellik yarışmasına katılan bir böcek gibi davranarak tek kısa espri yap'
+];
+const divaIdleBackup=[
+ 'Aşkolar, bir sorum var: Taç mı daha asil, pembe şal mı?',
+ 'Antenlerim bana bugün yine çok güzel olduğumu söyledi. Yalan söylemezler.',
+ 'Sizce bir hamam böceğinin en büyük lüksü nedir? Benim cevabım: terliksiz bir hayat.',
+ 'Ben mutfağın değil, kırmızı halının böceğiyim, ayol!',
+ 'Diva olarak talebim basit: Biraz sohbet, bolca neşe!',
+ 'Kraliçeliğime laf eden çıkmadı. Demek ki herkes hemfikir.',
+ 'Birinin bugün başına gelen en komik olayı duymak istiyorum!',
+ 'Topuklu ayakkabı giyen hamam böceği görseniz alkışlar mıydınız?',
+ 'Sohbet, sizce aşk mı daha zor yoksa anten bakımı mı?',
+ 'Biri şu pembe şalıma bir övgü yazsın, kendimi çok yalnız hissediyorum!'
+];
+function scheduleIdle(){
+ clearTimeout(idleTimer);
+ if(!idleEnabled)return;
+ idleTimer=setTimeout(divaIdleTick,4200);
+}
+async function divaIdleTick(){
+ if(!idleEnabled)return;
+ const now=Date.now();
+ const lastActivity=Math.max(lastSpeakTime,divaIdleLastViewerAt);
+ // Comments, gifts, welcomes, other speech and an in-flight AI reply all take priority.
+ if(document.hidden || divaIdleBusy || diva.classList.contains('talking') ||
+    bridge.queue.length>0 || bridge.aiPending ||
+    now-lastActivity<divaIdleSilenceMs || now-divaIdleLastRequestAt<divaIdleAiGapMs){
+   scheduleIdle();return;
+ }
+ divaIdleBusy=true;
+ divaIdleLastRequestAt=now;
+ const token=divaIdleToken;
+ const speechSnapshot=lastSpeakTime;
+ const viewerSnapshot=divaIdleLastViewerAt;
+ const subject=divaIdleTopics[divaIdleTopicIndex++%divaIdleTopics.length];
+ const fallback=divaIdleBackup[(divaIdleTopicIndex-1)%divaIdleBackup.length];
+ let text=fallback;
+ try{ text=await divaAskAI(subject,'DivaOtoSohbet','idle',fallback); }
+ catch(_err){ text=fallback; }
+ finally{divaIdleBusy=false;}
+ // Drop stale results: viewer activity during the API request always wins.
+ if(idleEnabled && token===divaIdleToken && !document.hidden &&
+    lastSpeakTime===speechSnapshot && divaIdleLastViewerAt===viewerSnapshot &&
+    !diva.classList.contains('talking') && !bridge.queue.length && !bridge.aiPending){
+   speak(text,'wink');
+ }
+ scheduleIdle();
+}'''
 
 # Inject the AI hooks at the page-serving step; do not edit the 2 MB image or Emel audio asset.
 AI_JS = r'''
@@ -160,6 +244,18 @@ def enhanced_ai_page(html: str) -> str:
       <button type="button" id="aiTestBtn" style="margin-top:7px;border-radius:11px;padding:8px;background:#ff7aba;color:#44122a;border:0;font-weight:bold">🧪 Yapay zekâyı dene</button>''')
     put('const bridge={lastId:0,joined:false,lastPollAt:0,queue:[],nextAt:0,busy:false,statusTimer:null};',
         'const bridge={lastId:0,joined:false,lastPollAt:0,queue:[],nextAt:0,busy:false,aiPending:false,statusTimer:null};')
+    # Observe real comments and gifts as activity. These must interrupt idle topics.
+    put('function addChat(who,txt,isDiva=false){',
+        'function addChat(who,txt,isDiva=false){if(!isDiva)divaIdleLastViewerAt=Date.now();')
+    # Replace the existing four-line idle scheduler without touching images or Emel TTS.
+    old_idle = next((line for line in html.splitlines() if line.startswith('function scheduleIdle(){clearTimeout(idleTimer);')), None)
+    if old_idle is None:
+        raise RuntimeError('Diva auto chat scheduler anchor missing')
+    put(old_idle, IDLE_JS)
+    old_toggle = "$('idleBtn').addEventListener('click',()=>{idleEnabled=!idleEnabled;"
+    put(old_toggle, "$('idleBtn').addEventListener('click',()=>{idleEnabled=!idleEnabled;divaIdleToken++;if(idleEnabled)divaIdleLastViewerAt=Date.now();")
+    put("toast(idleEnabled?'Diva sessizlikte kendi kendine konuşacak.':'Otomatik konuşma durduruldu.');",
+        "toast(idleEnabled?'Diva sessizlikte Groq ile özgün konular açacak.':'Otomatik konuşma durduruldu.');")
     put('const reply=react(msg,user);', 'const reply=react(msg,user);')  # check anchor exists
     put('bridgeOffer({text:reply,mood});', "bridgeOffer({text:reply,mood,source:msg,username:user,kind:'comment'});")
     put("bridgeOffer({text,mood:isBig||isCrown?'celebrate':isHeart?'wink':'normal'},1);",
