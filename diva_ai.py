@@ -355,7 +355,7 @@ async def generate_ai_reply(body: AiReplyRequest) -> dict[str, str]:
 
     try:
         async with AI_SEMAPHORE:
-            async with httpx.AsyncClient(timeout=httpx.Timeout(8,connect=3)) as client:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(12,connect=3)) as client:
                 resp = await client.post(API_URL, headers={"Authorization":"Bearer "+api_key}, json={
                     "model":AI_MODEL,
                     "messages":messages,
@@ -369,7 +369,7 @@ async def generate_ai_reply(body: AiReplyRequest) -> dict[str, str]:
         if resp.status_code == 429:
             raise HTTPException(status_code=429, detail="Ücretsiz Groq kotası doldu; hazır espriler devam edebilir.")
         if resp.status_code >= 400:
-            raise HTTPException(status_code=503, detail="Yapay zekâ servisine şu anda erişilemiyor.")
+            raise HTTPException(status_code=503, detail=f"Groq HTTP {resp.status_code} hatası: model/istek ayarını veya servisi kontrol et.")
         payload=resp.json()
         content = ((payload.get("choices") or [{}])[0].get("message") or {}).get("content") or ""
         # JSON is model output; validate both fields before handing the emotion to the browser.
@@ -393,10 +393,14 @@ async def generate_ai_reply(body: AiReplyRequest) -> dict[str, str]:
                 successful_replies += 1
                 if body.kind == "idle":
                     successful_idle_replies += 1
-        return {"reply":reply, "mood":mood, "engine":"groq"}
+        return {"reply":reply, "mood":mood, "engine":"groq", "model":AI_MODEL}
     except HTTPException: raise
-    except (httpx.TimeoutException, httpx.HTTPError, ValueError, KeyError, IndexError):
-        raise HTTPException(status_code=503, detail="Yapay zekâ gecikti; hazır esprilere geçiliyor.")
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail=f"Groq {AI_MODEL} 12 saniyede yanıt vermedi (zaman aşımı).")
+    except httpx.HTTPError:
+        raise HTTPException(status_code=503, detail="Groq ağ bağlantısı hatası; cevap gelmedi.")
+    except (ValueError, KeyError, IndexError):
+        raise HTTPException(status_code=503, detail="Groq yanıt biçimi beklenenden farklı; model ayarını kontrol et.")
 
 
 # Server-served JS: this replaces the small original idle timer, no HTML asset changes.
@@ -460,7 +464,7 @@ async function divaIdleTick(){
  catch(_err){ reaction={reply:fallback,mood:'wink'}; }
  finally{divaIdleBusy=false;}
  // Drop stale results: viewer activity during the API request always wins.
- if(idleEnabled && token===divaIdleToken && !document.hidden &&
+ if(reaction.reply && idleEnabled && token===divaIdleToken && !document.hidden &&
     lastSpeakTime===speechSnapshot && divaIdleLastViewerAt===viewerSnapshot &&
     !diva.classList.contains('talking') && !bridge.queue.length && !bridge.aiPending){
    speak(reaction.reply,reaction.mood);
@@ -485,8 +489,13 @@ react=function(message,name){
 const aiEnabledEl=$('aiEnabled');
 const aiNote=$('aiStatus');
 aiEnabledEl.checked=store.get('divaAiEnabled','yes')!=='no';
-aiEnabledEl.addEventListener('change',()=>{store.set('divaAiEnabled',aiEnabledEl.checked?'yes':'no');aiNote.textContent=aiEnabledEl.checked?'Yapay zekâ açık. Kota dolarsa hazır espriler konuşulur.':'Yapay zekâ kapalı. Hazır espriler konuşulur.';});
-aiNote.textContent=aiEnabledEl.checked?'Yapay zekâ açık. Ücretsiz kota dolarsa otomatik hazır cevap.':'Yapay zekâ kapalı.';
+aiEnabledEl.addEventListener('change',()=>{store.set('divaAiEnabled',aiEnabledEl.checked?'yes':'no');aiNote.textContent=aiEnabledEl.checked?'🧠 Groq açık. Bağlantıyı test et; cevap gelmezse alakasız hazır cevap konuşulmayacak.':'⚪ Yapay zekâ kapalı. Yerel hazır cevaplar kullanılıyor.';});
+aiNote.textContent=aiEnabledEl.checked?'🧠 Groq açık. Durumu görmek için "Yapay zekâyı dene" düğmesine bas.':'⚪ Yapay zekâ kapalı. Yerel hazır cevaplar kullanılıyor.';
+let divaLastAiWarningAt=0;
+function divaAIUnavailable(reason){
+ aiNote.textContent='⚠️ Groq YANIT VERMİYOR: '+String(reason||'Bilinmeyen hata').slice(0,115)+' · Alakasız hazır cevap söylenmeyecek.';
+ if(Date.now()-divaLastAiWarningAt>60000){divaLastAiWarningAt=Date.now();toast('⚠️ Groq cevap vermiyor. Ayarlardan "Yapay zekâyı dene" ile kontrol et.');}
+}
 function divaLocalCultureNormalize(value){
  return String(value||'').toLocaleLowerCase('tr-TR').replace(/ı/g,'i')
   .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
@@ -547,19 +556,28 @@ function divaLocalSpecialResponse(message,kind){
  return null;
 }
 async function divaAskAIReaction(message,username,kind='comment',fallback='',fallbackMood='normal',displayName=''){
- const backup={reply:fallback,mood:fallbackMood};
+ const backup={reply:fallback,mood:fallbackMood,engine:'local'};
+ const unavailable={reply:'',mood:fallbackMood,engine:'unavailable'};
  const instant=divaLocalEchoResponse(message,displayName||username,kind)||divaLocalSpecialResponse(message,kind);
- if(instant)return instant;
- if(!aiEnabledEl.checked || !bridgeIsReady() || location.protocol==='file:')return backup;
+ if(instant)return {...instant,engine:'scripted'};
+ // The owner may deliberately choose the original offline canned-response mode.
+ if(!aiEnabledEl.checked)return backup;
+ if(!bridgeIsReady() || location.protocol==='file:'){
+   divaAIUnavailable('Sunucu/PIN bağlantısı hazır değil');
+   return kind==='gift'?backup:unavailable;
+ }
  try{
   const result=await bridgeRequest('/api/ai/reply','POST',{username:username||'İzleyici',message:String(message||'').slice(0,240),kind,spice:$('argo').value});
-  aiNote.textContent='✅ Gerçek yapay zekâ cevap üretti.';
   const allowed=['normal','angry','surprised','wink','celebrate'];
-  return {reply:typeof result.reply==='string'&&result.reply.trim()?result.reply:fallback,
-          mood:allowed.includes(result.mood)?result.mood:fallbackMood};
+  if(typeof result.reply!=='string'||!result.reply.trim())throw new Error('Groq boş yanıt verdi');
+  const engine=String(result.engine||'unknown');
+  aiNote.textContent=engine==='groq'?'✅ GROQ ÇALIŞIYOR: gerçek yapay zekâ cevabı alındı.':'ℹ️ Cevap kaynağı: '+engine+' (hazır özel kural).';
+  return {reply:result.reply,mood:allowed.includes(result.mood)?result.mood:fallbackMood,engine,model:result.model||''};
  }catch(err){
-  aiNote.textContent='⚠️ '+String(err.message||'AI erişilemedi').slice(0,105)+' · hazır cevap kullanılıyor.';
-  return backup;
+  divaAIUnavailable(err&&err.message||'API hatası');
+  // If Groq is down, never impersonate it with the same unrelated stock quips.
+  // Gift thanks can still use the existing, gift-specific acknowledgement.
+  return kind==='gift'?backup:unavailable;
  }
 }
 // Preserve the text-only helper for older callers that do not need emotion metadata.
@@ -571,7 +589,18 @@ async function divaManualAI(msg,name,mood){
  const reaction=await divaAskAIReaction(msg,name,'comment',fallback,mood);
  speak(reaction.reply,reaction.mood);
 }
-$('aiTestBtn').addEventListener('click',()=>{divaManualAI('Diva sen neden bu kadar havalısın?', 'Testİzleyici','wink')});
+$('aiTestBtn').addEventListener('click',async()=>{
+ if(!aiEnabledEl.checked){aiNote.textContent='⚠️ Groq kapalı. Önce Yapay zekâ cevapları seçeneğini aç.';return;}
+ const btn=$('aiTestBtn');btn.disabled=true;btn.textContent='⏳ Groq test ediliyor…';
+ try{
+  const result=await divaAskAIReaction('Diva bugün antenlerinle neler gördün?','TestIzleyici','comment','','normal');
+  if(result.engine==='groq'&&result.reply){
+   aiNote.textContent='✅ TEST BAŞARILI: Groq gerçek yanıt verdi'+(result.model?' ('+result.model+')':'')+'. '+result.reply.slice(0,105);
+   divaQueueAnswerContext({kind:'comment',username:'TestIzleyici',source:'Diva bugün antenlerinle neler gördün?'});
+   speak(result.reply,result.mood);
+  }else if(result.engine!=='unavailable')aiNote.textContent='⚠️ Test Groq yerine yerel cevaptan döndü: '+result.engine;
+ }finally{btn.disabled=false;btn.textContent='🧪 Yapay zekâyı dene';}
+});
 '''
 
 

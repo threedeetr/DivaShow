@@ -549,6 +549,13 @@ def enhanced_comment_page(html: str) -> str:
     replace_once("    addChat(user,msg);\n    if(divaIsAydinlatMeme(msg))divaLaunchLightRocket();",
                  "    addChat(user,msg);\n    if(divaCommentShouldSkip(msg,user))return;\n    if(divaIsAydinlatMeme(msg))divaLaunchLightRocket();")
     # Only speak results from the queue once their answer context is attached.
+    # Keep the client's API timeout longer than Groq's 12s server timeout; otherwise
+    # a healthy response is aborted in Chrome even though the server is still running.
+    replace_once("const timeout=setTimeout(()=>ctrl.abort(),9500);",
+                 "const timeout=setTimeout(()=>ctrl.abort(),path==='/api/ai/reply'?16000:9500);")
+    # If the enabled AI failed, do not read the unrelated original generic phrase.
+    replace_once("    const reply=reaction.reply;\n    item.mood=reaction.mood||item.mood||'normal';",
+                 "    const reply=reaction.reply;\n    if(!reply||!String(reply).trim()){bridge.nextAt=Date.now()+1200;return;}\n    item.mood=reaction.mood||item.mood||'normal';")
     replace_once("    speak(reply,item.mood);",
                  "    divaQueueAnswerContext(item);speak(reply,item.mood);")
     replace_once("})().catch(()=>{speak(item.text,item.mood);}).finally",
@@ -559,7 +566,7 @@ def enhanced_comment_page(html: str) -> str:
     replace_once(" if(divaContainsBlockedWords(msg))return;",
                  " if(divaContainsBlockedWords(msg)||divaCommentShouldSkip(msg,name,false))return;")
     replace_once(" const reaction=await divaAskAIReaction(msg,name,'comment',fallback,mood);\n speak(reaction.reply,reaction.mood);",
-                 " const reaction=await divaAskAIReaction(msg,name,'comment',fallback,mood);\n divaQueueAnswerContext({kind:'comment',username:name,source:msg});speak(reaction.reply,reaction.mood);")
+                 " const reaction=await divaAskAIReaction(msg,name,'comment',fallback,mood);\n if(reaction.reply){divaQueueAnswerContext({kind:'comment',username:name,source:msg});speak(reaction.reply,reaction.mood);}")
     # The single panel is inside the existing answer/speech area; no new floating box.
     replace_once('<div class="speech" id="speechBox"><label>',
                  '<div class="speech" id="speechBox"><div id="divaAnsweredQuestion" hidden></div><label>')

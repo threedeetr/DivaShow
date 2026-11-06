@@ -1,0 +1,25 @@
+DIVA SHOW — GROQ CEVAP TESTİ / TEKRARLI HAZIR CEVAP DÜZELTMESİ
+
+GitHub: https://github.com/threedeetr/DivaShow
+Yükle: app.py ve diva_ai.py dosyalarını depodaki mevcut dosyaların üzerine yükle, Commit changes yap. Render tekrar Live olunca siteyi yenile.
+
+NERESİ DÜZELTİLDİ?
+- İki yorum da aynı altı yerel hazır cevaba düşebiliyordu: “Diva canım benim” ve “Divaaa”.
+- Groq AÇIKKEN cevap alınamazsa Diva artık alakasız hazır cümleleri okumuyor; kısa uyarı gösterip söz konusu yorumu atlıyor. Groq yeniden çalışınca otomatik cevaplara devam ediyor.
+- Otosohbet, Groq başarısızken hazır espriyi tekrarlamak yerine sessiz kalıyor.
+- Groq kapalı seçilmişse önceki hazır cevap modu isteğe bağlı olarak çalışmaya devam ediyor.
+- Sunucunun Groq yanıt bekleme süresi 8 saniyeden 12 saniyeye, tarayıcının AI isteği bekleme süresi 9,5 saniyeden 16 saniyeye çıktı. Diğer API isteklerinin süresi değişmedi.
+- “Yapay zekâyı dene” düğmesi gerçek API çağrısıyla Groq yanıtı gelip gelmediğini açıkça bildiriyor.
+- Başarılı testte API'nin kullandığı model adı da gösteriliyor (ör. openai/gpt-oss-120b).
+- Kota, model ve zaman aşımı sorunlarının nedeni ayarlar ekranında daha açık yazıyor; gizli API anahtarı gösterilmiyor.
+
+TELEFONDAN GERÇEK TEST
+1) Render > diva-canli > Live olduğunu kontrol et.
+2) Diva sitesini yenile. Ayarlar > TikTok bağlantısında kayıtlı yönetici PIN'inin doğru olduğundan emin ol. Test TikTok yayınına bağlı olmanı gerektirmez.
+3) Ayarlar > 🧠 Yapay zekâ cevapları açık olsun.
+4) 🧪 Yapay zekâyı dene düğmesine bir kez bas.
+5) '✅ TEST BAŞARILI: Groq gerçek yanıt verdi (MODEL)...' yazarsa Groq çalışıyor.
+6) '⚠ Groq YANIT VERMİYOR...' yazarsa mesajın altında nedenini oku. 429 = kota / hız sınırı, 504 = süre aşımı, 503 / HTTP 400 = servis veya model/istek hatası, 401 = PIN / kimlik doğrulama.
+7) Hata devam ederse API anahtarını kimseyle paylaşmadan yalnızca hata yazısını kaydet.
+
+Not: Bu paketin yerel testleri yapıldı; kullanıcının gizli GROQ_API_KEY anahtarına erişilmedi ve gerçek hesap kotası doğrulanmadı.
