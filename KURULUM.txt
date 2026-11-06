@@ -1,23 +1,25 @@
-DIVA SHOW — AKILLI YORUM FILTRESI VE SORU ONIZLEMESI
-6 Kasim 2026
+DIVA SHOW — ARKA PLAN MÜZİĞİ GÜNCELLEMESİ
 
-KURULUM (telefon / GitHub):
-1) ZIP dosyasini indirip cikart.
-2) https://github.com/threedeetr/DivaShow deposunu ac.
-3) app.py ve diva_ai.py dosyalarini depodaki ayni adli dosyalarla degistir.
-4) Commit changes yap. Render Live olunca Diva Show'u yeniden ac/yenile.
-5) index.html, diva_dashboard.py, diva_voice.py, Render Environment ve API anahtarlari degismez.
+GitHub: https://github.com/threedeetr/DivaShow
 
-Neler degisti?
-- Bir izleyici baska izleyiciden @ ile bahsediyorsa Diva bu yoruma sesli cevap vermez.
-- Ayni kullanicinin birebir ayni/anlamsal olarak ayni yazdigi yorumlar 10 dakika boyunca tekrar cevaplanmaz. Farkli izleyiciler engellenmez.
-- Sadece emoji, gulme/emojili gulme gibi yorumlara cevap verilmez. Normal sorunun sonunda emoji varsa cevap verilebilir.
-- Diva sesli cevap verirken yorumun sahibini ve orijinal mesajini soluk sekilde cevap balonunun USTUNDE gosterir. Gift, welcome, oto-sohbette soru satiri cikmaz.
-- mrb/mrhb, slm, sa, nbr, nsl, tmm, eyw, tsk/tşk, kib vb. kisaltmalar sistem tarafindan acilir. mrb ve nbr gibi kisa mesajlar icin yerel hazir cevap vardir, Groq kotasi kullanmaz.
-- Kisitli yorumlara AI API cagrisi gitmez; @ ve gulme/emoji API dogrudan cagrilsa da 422 dondurur.
+ZIP'ten yalnızca şu 4 dosyayı GitHub deponun ana dizinine yükle:
+  1. app.py                  (mevcut dosyanın yerine)
+  2. diva_ai.py              (son akıllı yorum sürümü; uyumluluk için)
+  3. diva_music.py           (yeni dosya)
+  4. diva-background.mp3     (yeni dosya: gönderdiğin 59 sn'lik müzik)
 
-SINIRLAR:
-- Tekrar engeli tarayici belleginde oturumluk saklanir, sayfa yeniden acilinca sifirlanir.
-- Filtreler cok farkli yazilmis rastgele kahkaha mesajlarinin tamamini yakalamayabilir.
-- Gercek TikTok canli yayini testi yapilmadi. Python sunucu, tarayici, 320/390/430px yerlesim ve test yorumlari dogrulandi.
-- AI ve otomatik yayin ile TikTok kurallarina uyma sorumlulugu ayri olarak devam eder.
+ZIP içindeki KURULUM.txt dosyasını GitHub'a yüklemene gerek yok.
+index.html, diva_dashboard.py, diva_voice.py, PIN ve Groq ayarları değişmeyecek.
+
+Commit changes yap. Render Live olunca Diva Show sitesini yeniden aç.
+Alt kısımda, Oto sohbet butonunun yanında "🎵 Müzik: Kapalı" butonu görünecek.
+Butona basınca müzik açılır; tekrar basınca durur. Müzik sona gelince döner.
+Diva konuşurken müzik sesi otomatik azalır, konuşma bitince geri yükselir.
+
+ÖNEMLİ:
+- Android Chrome ilk müziği başlatmak için kullanıcı dokunuşu gerektirir.
+- Sayfa yenilenirse, güvenli ve tarayıcı uyumlu olması için müzik kapalı başlar.
+- Müzik yayının izleyicilerine gidiyor mu, TikTok ekran paylaşımı/ses yakalama
+  ayarlarıyla gerçek cihazda kontrol et; tüm telefonlarda aynı davranmayabilir.
+- TikTok LIVE'da izin sahibi olmadığın kayıtların çalınması telif kısıtlaması
+  ve sessize alma riski doğurur. Kullandığın müzik için yayın iznin olduğundan emin ol.
