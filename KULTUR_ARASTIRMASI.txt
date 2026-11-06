@@ -1,0 +1,30 @@
+KULTUR ARASTIRMASI — 6 KASIM 2026
+
+Bu bir yapay zeka modelini kalici egitmek degil; Diva Show'un sistem
+istemine baglama gore eklenen kisa sahne/kultur rehberidir. Tum viral
+videolarin kare-kare ses/goruntu analizi degil; guncel haber, video
+aciklamalari, etiket ve trend verilerine dayanan arastirmadir.
+
+1) Akimin genel yapisi: AI ile uretilen hamam bocekleri insan gibi konusur,
+gundelik hayat, KYK, spor, mutfak gibi konularda ukala/absurt tepkiler verir.
+Kaynak: https://dijitopya.com.tr/bocek-akimi-nereden-cikti/
+Kaynak: https://vosscore.com/tag/hamamb%C3%B6ce%C4%9Fi
+
+2) 'Ben divayim yemek yapmam' / 'prenses erko', 'makarayiz' ve benzeri
+kisa absurt replikler listelenen memeler arasinda.
+Kaynak: https://kikostool.com/tr/rastgele-turkce-meme-videolari
+
+3) 'Aydinlat hele suralari' viral videolarda gecen kaliplardan.
+Kaynak: https://vosscore.com/tag/hamamb%C3%B6ce%C4%9Fi
+
+4) Manifest grubu 6 kisilik: Esin, Hilal, Lidya, Mina, Sueda, Zeynep.
+Kaynak: https://manifestgirlband.com/tr/
+'Zoktay' sorusunun mizahi Caner Erkin videosuyla da gundem olmus.
+Kaynak: https://www.sokgazetesi.com.tr/foto-galeri/caner-erkin-hangi-manifest-kizi-oldu-hilal-mi-zoktay-mi
+
+5) Groq'un browser_search ozelligi GPT-OSS 20B /120B ile desteklenir,
+ama structured output (mimik JSON) ile dogrudan uyumlu degildir.
+Kaynak: https://console.groq.com/docs/tool-use/built-in-tools/browser-search
+
+Diva, memeleri gerektiginde espri icin kullanir; surekli ayni kaliplari
+tekrar etmemesi icin sistem talimatlarina da sinirlama eklendi.

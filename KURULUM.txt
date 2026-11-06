@@ -1,13 +1,32 @@
-DIVA SHOW — DAHA SİVRİ KÜFÜRLÜ KONUŞMA
+DIVA SHOW — YORUM PANELI + DIVALIK + TURKCE MEME GUNCELLEMESI
 
-1. GitHub: https://github.com/threedeetr/DivaShow
-2. Yalnızca diva_ai.py dosyasını eski dosyayla değiştirip Commit changes yapın.
-3. Render Live durumundayken Diva Show'u yenileyin.
-4. Ayarlar > Diva’nın dili > Daha sivri seçin.
-5. Ayarlar > Yapay zekâyı dene düğmesinden kontrol edebilirsiniz.
+GITHUB: https://github.com/threedeetr/DivaShow
 
-Daha sivri modunda Groq esprili ve yerinde küfürlü konuşmaya yönlendirilir.
-Groq kotası dolunca hazır cevaplarda da ara sıra küfürlü çıkış olabilir.
-Diğer iki dil modu küfürsüz/hafif argo kalır.
-İzleyici yorumlarındaki ağır küfür filtresi değişmedi.
-Bu düzenleme, gerçek bir TikTok yayınında test edilmedi.
+1. Bu ZIP dosyasini telefonuna indir ve cikart.
+2. GitHub'daki DivaShow deposunu ac.
+3. Sadece diva_ai.py ve diva_dashboard.py dosyalarini eskilerinin yerine yukle.
+4. Commit changes yap; Render yeni surumu yayina alsin.
+5. Siteyi yenile (gerekirse Chrome'da sekmeyi kapatip yeniden ac).
+
+YAPILANLAR
+- Canli izleyici yorumlari paneli yayin hedef cubugunun ustune tasindi.
+- Dans et, yemek yap, sarki soyle, spor yap, temizlik yap gibi emirlerde
+  'Ben divayim, ... yapmam!' tavri ve kisa saka. Bu belirli istekler
+  Groq API istegi harcamaz; diger yorumlar normal AI akisini kullanir.
+- 'Hangi Manifest kizisin?' sorusunda Diva'nin bagimsiz karakteri korunur.
+- Ilgili sohbetlerde TikTok/Instagram hamam bocegi ve Manifest memeleri
+  hakkinda kisa kultur rehberi Groq'a baglam olarak verilir.
+- Konusma tonlari (Daha sivri dahil), TikTok, Emel sesi, hedef/puan,
+  mimikler, fuse ve engellenmis kelime filtresi degistirilmedi.
+
+NOT: GPT modelinin kendisi egitilmedi. Her ilgili yorumda sistem istemine
+kisa kulturel baglam eklenir; bilinen eserler anlik kontrol edilmez.
+Mevcut Groq entegrasyonunda internet aramasi acilmadi.
+
+GELISTIRICI TESTLERI
+- Python syntax, FastAPI HTML olusturma
+- Chrome 320x690 / 390x844 / 430x932 / 390x600 gorunumleri
+- Canli panelin hedef ustunde kalmasi
+- Girdi -> kisa karakter yaniti ve yanlis olumlu kontrolu
+- Groq sahte API yanit testi, kota ve duygular
+Gercek TikTok yayini ve gercek Groq istegi bu ortamda denenmedi.

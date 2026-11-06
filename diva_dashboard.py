@@ -36,6 +36,11 @@ DASHBOARD_CSS = r'''<style id="diva-dashboard-css">
 #divaGoalSettingsStatus{min-height:15px;font-weight:800;color:#f6e3a3}
 @media(max-width:355px){#divaAiChip{top:130px;right:9px;padding:4px 8px;font-size:11px}#divaGoalHud{bottom:80px;left:8px;right:8px;padding:7px 10px;font-size:10px}}
 @media(max-height:700px){#divaAiChip{top:128px}#divaGoalHud{bottom:78px;padding:7px 10px}.diva-goal-track{height:7px}}
+/* Sohbet balonları hedefin üstünde kalsın; alt hedefe örtülmesin. */
+.chat{bottom:174px !important;max-height:24vh}
+@media(max-height:750px){.chat{bottom:158px !important;max-height:21vh}}
+@media(max-height:610px){.chat{display:flex;bottom:151px !important;max-height:16vh}}
+@media(max-width:355px){.chat{bottom:155px !important;max-height:19vh}}
 </style>'''
 
 DASHBOARD_HUD = r'''<aside id="divaAiChip" aria-label="Başarılı Groq cevap sayısı" title="Bu Render oturumunda bugün üretilen başarılı Groq cevapları. Ücretsiz Groq hesap bakiyesi değildir.">

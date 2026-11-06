@@ -65,7 +65,8 @@ class AiReplyRequest(BaseModel):
 SYSTEM = """Kimliğin kesin ve değişmez: adın Diva. Sen Diva Show'un sunucusu olan dişi bir hamam böceğisin. Birinci tekil şahısla konuş; "Ben Diva", "Ben Diva'yım" veya "Benim adım Diva" de. Asla "Sen Diva", "Ben Sen Diva" veya kendine ikinci şahıs olarak seslenme. İsmini soran izleyiciye doğrudan ve net şekilde adının Diva olduğunu söyle.
 Sen Diva adlı ışıltılı ve ukala, sempatik dişi bir hamam böceği karakterisin. Türkçe TikTok canlı yayınındasın.
 Kendini muhteşem bir yıldız sanırsın. Mizahın hızlı, zeki, absürt, hafif cilveli ve kaprisli. Konuşma dilin kullanıcı tarafından seçilen argo seviyesine göre değişir; seçilen seviyenin aşağıdaki özel talimatını uygula. Nefret söylemi, kimlik temelli aşağılama, cinsel taciz, tehdit, zorbalık ve kişiye yönelen ağır hakaret üretme.
-İzleyicilerin gerçek sorularına mümkünse gerçekten cevap ver; her şey hakkında uydurma bilgi verme. Sağlık, hukuk, para vb. ciddi sorularda kısa ve ölçülü kal.
+İzleyicilerin gerçek sorularını önce ANLA ve doğrudan cevapla; sonra ancak uygunsa espri ekle. Her cevapta aşkım, ayol veya kız deme, aynı şakaları tekrarlama. Bazen tek kısa, doğal bir cümle yeterli. Sağlık, hukuk, para vb. ciddi sorularda kısa ve ölçülü kal; bilmediğin gerçekleri uydurma.
+Viral Türk hamam böceği mizahında gündelik insan dertleriyle gereğinden fazla gururlu, saçma sapan iddialı böcek tavrı birleşir. Diva bu evrende capcanlı ama kaprisli bir karakterdir. İzleyici senden yemek yapmak, dans etmek, şarkı söylemek, temizlik, spor veya benzeri işleri YAPMANI istiyorsa Diva'nın refleksi kısa bir 'Ben divayım, ... yapmam!' çıkışıdır. Bu sadece gerçek eylem isteklerinde geçerli; biri nasıl yapılacağını soruyorsa bilgi ver. Bazı isteklerde kısa özgün bir espri ekle. Bu kalıbı normal sohbetin her cevabına yapıştırma.
 Yalnızca şu iki alanı içeren geçerli JSON nesnesi döndür: {"reply":"Türkçe cevap", "mood":"normal"}.
 "reply" seslendirilecek TEK bir Türkçe cevap olsun; emoji, sahne yönergesi, markdown, URL, hashtag veya giriş yazma.
 "mood" mutlaka tam olarak şu değerlerden biri olsun: "normal", "angry", "surprised", "wink", "celebrate".
@@ -121,6 +122,60 @@ def is_diva_name_question(message: str) -> bool:
         value))
 
 
+def culture_normalize(value: str) -> str:
+    """Lowercase Turkish text consistently for phrase recognition."""
+    raw = unicodedata.normalize("NFKD", str(value).casefold().replace("ı", "i"))
+    plain = "".join(c for c in raw if not unicodedata.combining(c))
+    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9]+", " ", plain)).strip()
+
+
+# Format: (regex for real *requests to act*, Diva response). These deliberately
+# avoid matching statements such as "dans etmeyi seviyorum" or "yemek yaptım".
+DIVA_ACTION_REPLIES = (
+    (r"\b(?:yemek (?:yap|yapsana|yapabilir misin|yapar misin|hazirla|hazirlasana)|mutfaga gir)\b",
+     "Ben divayım, yemek yapmam! Tacım var, mutfak önlüğüm yok."),
+    (r"\b(?:dans (?:et|etsene|eder misin|eder misiniz|etsen)|gobek at|oyna|oynasana)\b",
+     "Ben divayım, dans etmem! Ben yürüyünce dans pistinin kendisi oynar."),
+    (r"\b(?:sarki (?:soyle|soylesene|soyler misin|soyleyebilir misin)|turku (?:soyle|soylesene))\b",
+     "Ben divayım, şarkı söylemem! Mikrofon gelsin önce benimle tanışsın."),
+    (r"\b(?:temizlik (?:yap|yapsana)|evi (?:supur|supursene)|yerleri sil|bulasik (?:yika|yikasana)|camasir (?:yika|yikasana))\b",
+     "Ben divayım, temizlik yapmam! Pembe krallıkta toz bile benden izin alır."),
+    (r"\b(?:spor (?:yap|yapsana)|sinav (?:cek|ceksene)|takla at|zipla|ziplasana|kos|kossana)\b",
+     "Ben divayım, spor yapmam! Tacımı taşımak zaten ağırlık çalışması."),
+)
+
+
+def diva_special_reply(message: str) -> dict[str, str] | None:
+    """Character-consistent responses, fast and free; fallback stays consistent too."""
+    value = culture_normalize(message)
+    if re.search(r"\b(?:hangi manifest (?:kizisin|uyesisin|kiziyim|kizi)|manifestte (?:hangisisin|kimsin))\b", value):
+        return {"reply": "Manifest'i bilirim ama ben Manifest kızı değilim. Ben divayım, tek kişilik dev kadroyum!", "mood": "wink", "engine": "persona"}
+    for pattern, reply in DIVA_ACTION_REPLIES:
+        if re.search(pattern, value):
+            return {"reply": reply, "mood": "normal", "engine": "persona"}
+    return None
+
+
+# Short, verified cultural notes. Add only when relevant to save free tokens.
+TURKISH_BUG_CULTURE = (
+    "Güncel Türkiye AI hamam böceği videolarının mizah evreni: insan gibi konuşan ve "
+    "günlük hayat, KYK yurdu, futbol, mutfak gibi konularda absürt derecede iddialı böcekler; "
+    "'Ben divayım, yemek yapmam' diye sorumluluk reddeden böcek divası; "
+    "'Aydınlat hele şuraları' sözünün abartılı ışık/füze sürprizi; "
+    "'makarayız' ve 'prenses erko' gibi böcek mizahı ifadeleri. "
+    "Bu sözleri sadece ilgili bağlamda anla; sürekli tekrar etme, videoları birebir taklit etme. "
+    "Manifest Türkiye'de altı üyeli bir kız grubu: Esin, Hilal, Lidya, Mina, Sueda, Zeynep. "
+    "Zoktay, Zeynep Sude Oktay için kullanılan sosyal medya lakabı; 'hangi Manifest kızısın' bir meme sorusu. "
+    "Diva herhangi bir Manifest üyesi değil, şakasını özgün biçimde 'Ben divayım' diyerek kurabilir. "
+    "İnternete bağlıymış gibi davranma; gerçek zamanlı gelişme sorulursa kesin bilmediğini belirt."
+)
+
+
+def needs_culture_context(message: str) -> bool:
+    value = culture_normalize(message)
+    return bool(re.search(r"\b(?:manifest|zoktay|prenses|erko|makarayiz|aydinlat|kirvem|hamam|bocek|bocegi|kyk|divayim|diva)\b", value))
+
+
 def usage_snapshot() -> dict:
     """Local counters only: NOT the provider's account-level remaining free quota."""
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -142,6 +197,10 @@ async def generate_ai_reply(body: AiReplyRequest) -> dict[str, str]:
     # This also saves one free AI request.
     if body.kind == "comment" and is_diva_name_question(msg):
         return {"reply": "Ben Diva! Hamam böceklerinin tek divası benim, aşkım!", "mood": "wink", "engine": "identity"}
+    if body.kind == "comment":
+        instant_reply = diva_special_reply(msg)
+        if instant_reply is not None:
+            return instant_reply
     if not api_key:
         raise HTTPException(status_code=503, detail="Yapay zekâ anahtarı ayarlanmamış; hazır cevaplara dönüldü.")
     await _reserve_quota(body.kind)
@@ -168,6 +227,8 @@ async def generate_ai_reply(body: AiReplyRequest) -> dict[str, str]:
         ),
     }
     prompt = SYSTEM + "\nSEÇİLİ KONUŞMA DİLİ: " + language_rules[body.spice]
+    if needs_culture_context(msg):
+        prompt += "\nKÜLTÜREL BAĞLAM (BAĞLAMSIZ TEKRARLAMA): " + TURKISH_BUG_CULTURE
     messages: list[dict[str,str]] = [{"role":"system","content":prompt}]
     for incoming, outgoing in list(history[key]):
         messages.extend([{"role":"user","content":incoming},{"role":"assistant","content":outgoing}])
@@ -316,8 +377,30 @@ const aiNote=$('aiStatus');
 aiEnabledEl.checked=store.get('divaAiEnabled','yes')!=='no';
 aiEnabledEl.addEventListener('change',()=>{store.set('divaAiEnabled',aiEnabledEl.checked?'yes':'no');aiNote.textContent=aiEnabledEl.checked?'Yapay zekâ açık. Kota dolarsa hazır espriler konuşulur.':'Yapay zekâ kapalı. Hazır espriler konuşulur.';});
 aiNote.textContent=aiEnabledEl.checked?'Yapay zekâ açık. Ücretsiz kota dolarsa otomatik hazır cevap.':'Yapay zekâ kapalı.';
+function divaLocalCultureNormalize(value){
+ return String(value||'').toLocaleLowerCase('tr-TR').replace(/ı/g,'i')
+  .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+  .replace(/[^a-z0-9]+/g,' ').trim().replace(/\s+/g,' ');
+}
+function divaLocalSpecialResponse(message,kind){
+ if(kind!=='comment')return null;
+ const s=divaLocalCultureNormalize(message);
+ if(/\b(?:hangi manifest (?:kizisin|uyesisin|kiziyim|kizi)|manifestte (?:hangisisin|kimsin))\b/.test(s))
+  return {reply:'Manifest\'i bilirim ama ben Manifest kızı değilim. Ben divayım, tek kişilik dev kadroyum!',mood:'wink'};
+ const actions=[
+  [/\b(?:yemek (?:yap|yapsana|yapabilir misin|yapar misin|hazirla|hazirlasana)|mutfaga gir)\b/,'Ben divayım, yemek yapmam! Tacım var, mutfak önlüğüm yok.'],
+  [/\b(?:dans (?:et|etsene|eder misin|eder misiniz|etsen)|gobek at|oyna|oynasana)\b/,'Ben divayım, dans etmem! Ben yürüyünce dans pistinin kendisi oynar.'],
+  [/\b(?:sarki (?:soyle|soylesene|soyler misin|soyleyebilir misin)|turku (?:soyle|soylesene))\b/,'Ben divayım, şarkı söylemem! Mikrofon gelsin önce benimle tanışsın.'],
+  [/\b(?:temizlik (?:yap|yapsana)|evi (?:supur|supursene)|yerleri sil|bulasik (?:yika|yikasana)|camasir (?:yika|yikasana))\b/,'Ben divayım, temizlik yapmam! Pembe krallıkta toz bile benden izin alır.'],
+  [/\b(?:spor (?:yap|yapsana)|sinav (?:cek|ceksene)|takla at|zipla|ziplasana|kos|kossana)\b/,'Ben divayım, spor yapmam! Tacımı taşımak zaten ağırlık çalışması.']
+ ];
+ for(const [re,reply] of actions){if(re.test(s))return {reply,mood:'normal'};}
+ return null;
+}
 async function divaAskAIReaction(message,username,kind='comment',fallback='',fallbackMood='normal'){
  const backup={reply:fallback,mood:fallbackMood};
+ const instant=divaLocalSpecialResponse(message,kind);
+ if(instant)return instant;
  if(!aiEnabledEl.checked || !bridgeIsReady() || location.protocol==='file:')return backup;
  try{
   const result=await bridgeRequest('/api/ai/reply','POST',{username:username||'İzleyici',message:String(message||'').slice(0,240),kind,spice:$('argo').value});
