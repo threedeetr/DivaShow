@@ -334,7 +334,11 @@ def enhanced_connection_page(html: str) -> str:
     html = html.replace(old, old + "\n  if(item.kind==='welcome' && Date.now()-Number(item.welcomeQueuedAt||0)>20000)return;", 1)
     old = "const reply=await divaAskAI(item.source,item.username,item.kind||'comment',item.text);"
     assert html.count(old) == 1, "Missing AI queue anchor"
-    html = html.replace(old, "const reply=item.kind==='welcome' ? item.text : await divaAskAI(item.source,item.username,item.kind||'comment',item.text);", 1)
+    html = html.replace(old, """const reaction=item.kind==='welcome'
+      ? {reply:item.text,mood:item.mood||'wink'}
+      : await divaAskAIReaction(item.source,item.username,item.kind||'comment',item.text,item.mood||'normal');
+    const reply=reaction.reply;
+    item.mood=reaction.mood||item.mood||'normal';""", 1)
     return html
 
 
