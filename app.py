@@ -126,6 +126,9 @@ async def live_worker(name: str, my_generation: int) -> None:
 
         # Per-LIVE welcome controls. Never confuse cumulative joins with current viewers.
         welcome = {"viewers": None, "viewer_at": 0.0, "last_at": 0.0, "started": time.monotonic()}
+        # Visibility for troubleshooting unavailable TikTok member/count events.
+        state.update(viewer_count=None, join_events_seen=0, greetings_sent=0,
+                     welcome_last_skip="", last_join_at=None)
         welcomed: set[str] = set()
         recent_joins: deque[float] = deque(maxlen=30)
 
@@ -167,32 +170,59 @@ async def live_worker(name: str, my_generation: int) -> None:
             if my_generation != generation or state["phase"] != "connected":
                 return
             now = time.monotonic()
+            state["join_events_seen"] += 1
+            state["last_join_at"] = time.time()
             recent_joins.append(now)
             while recent_joins and now - recent_joins[0] > 30:
                 recent_joins.popleft()
+
+            def skipped(why: str) -> None:
+                state["welcome_last_skip"] = why
+
             viewers = welcome["viewers"]
-            # If the count is unavailable/stale, don't assume a small room.
-            if (viewers is None or now - welcome["viewer_at"] > 100
-                    or viewers > 25 or now - welcome["started"] < 15):
-                return
-            # A crowded entry burst should not trigger a stream of greetings.
-            if len(recent_joins) >= 5:
-                return
-            interval = 50 if viewers <= 10 else 150
+            current_count = viewers is not None and now - welcome["viewer_at"] <= 100
+            if current_count:
+                if viewers > 25:
+                    skipped("Kalabalik yayin (>25 izleyici)")
+                    return
+                # Verified small room. A quick burst still shouldn't start a greeting flood.
+                if len(recent_joins) >= 5:
+                    skipped("Hizli katilim yogunlugu")
+                    return
+                interval = 50 if viewers <= 10 else 150
+            else:
+                # TikTok sometimes omits RoomUserSeqEvent or pauses viewer counts.
+                # Do NOT equate join count to current viewer count. Only allow a
+                # very rare greeting when entrances themselves are sparse.
+                # An old high viewer count is evidence of a busy room: never fall back.
+                if viewers is not None and viewers > 25:
+                    skipped("Son bilinen izleyici sayisi yuksek")
+                    return
+                if len(recent_joins) > 2:
+                    skipped("Izleyici sayisi belirsiz; katilim yogun")
+                    return
+                interval = 100
             if now - welcome["last_at"] < interval:
+                skipped("Karsilama araligi dolmadi")
                 return
             user = getattr(event, "user", None)
             if user is None:
+                skipped("TikTok katilan kisi bilgisini gondermedi")
                 return
             uid = clean_text(getattr(user, "unique_id", ""), 40).casefold()
             if not uid or uid in welcomed:
+                skipped("Kullanici adi eksik veya daha once karsilandi")
                 return
             display = welcome_name(user)
             if not display:
+                skipped("Seslendirilebilir isim bulunamadi")
                 return
             welcomed.add(uid)
             welcome["last_at"] = now
-            add_event("welcome", username=display, viewer_count=viewers)
+            state["greetings_sent"] += 1
+            state["welcome_last_skip"] = ""
+            add_event("welcome", username=display,
+                      viewer_count=viewers if current_count else None)
 
         @live.on(GiftEvent)
         async def on_gift(event: object) -> None:
@@ -292,10 +322,16 @@ def enhanced_connection_page(html: str) -> str:
     html = html.replace(old, """function bridgeOffer(item,priority=0){
   // A greeting never interrupts comments, gifts, or active speech.
   if(item.kind==='welcome'){
-    if(bridge.queue.length || bridge.aiPending || diva.classList.contains('talking'))return;
+    // A single brief greeting may wait for current speech; never stack greetings.
+    if(bridge.queue.some(e=>e.kind==='welcome') || bridge.queue.length>2)return;
+    item.welcomeQueuedAt=Date.now();
   } else {
     bridge.queue=bridge.queue.filter(e=>e.kind!=='welcome');
   }""", 1)
+    # Do not read an old greeting after lengthy speech/AI backlogs.
+    old = "const item=bridge.queue.shift();if(!item)return;"
+    assert html.count(old) == 1, "Missing queue pop anchor"
+    html = html.replace(old, old + "\n  if(item.kind==='welcome' && Date.now()-Number(item.welcomeQueuedAt||0)>20000)return;", 1)
     old = "const reply=await divaAskAI(item.source,item.username,item.kind||'comment',item.text);"
     assert html.count(old) == 1, "Missing AI queue anchor"
     html = html.replace(old, "const reply=item.kind==='welcome' ? item.text : await divaAskAI(item.source,item.username,item.kind||'comment',item.text);", 1)

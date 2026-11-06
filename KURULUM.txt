@@ -1,36 +1,17 @@
-DIVA SHOW — GROQ OTO SOHBET GÜNCELLEMESİ
+DIVA SHOW — AZ IZLEYICIDE HOS GELDIN DUZELTMESI
 
-Bu paket mevcut TikTok bağlantısını, Euler Stream anahtarını, Emel Neural sesini,
-Groq yorum/hediye cevaplarını, 6 mimiği, öpücük efektini ve katılım
-karşılamasını değiştirmez. Sadece var olan diva_ai.py güncellenir.
+1. GitHub https://github.com/threedeetr/DivaShow
+2. Bu zip icindeki sadece app.py dosyasini mevcut app.py ile degistir.
+3. Commit changes yap. Render Live olunca siteyi yeniden ac.
+4. TikTok yayini acikken Diva yi tek sefer bagla.
+5. Baska bir hesaptan yayinina katil.
 
-TELEFONDAN KURULUM
-1. ZIP'i indirip çıkar veya doğrudan diva_ai.py dosyasını indir.
-2. GitHub'da https://github.com/threedeetr/DivaShow adresine gir.
-3. Add file > Upload files menüsünden yeni diva_ai.py dosyasını yükle.
-   Mevcut dosyanın yerine geçmesini onayla ve Commit changes yap.
-4. Render'da son dağıtımın Live olmasını bekle.
-5. Diva Show'u Chrome'da aç; Ayarlar'dan DIVA_PIN'in girili olduğuna,
-   "Yapay zekâ cevapları" seçeneğinin açık olduğuna ve ses kaynağının
-   Emel Neural olduğuna emin ol.
-6. Sayfanın altındaki "Oto sohbet" düğmesini Açık yap. Sesin önceden
-   kilidini açmak için bir kez "Sesi aç / Test et"e dokunabilirsin.
+Bu surum su problemleri duzeltir:
+- TikTok anlik izleyici sayisini gondermezse sistem artik otomatik susmaz. Katilim akisi seyreklik gosterdiginde seyrek karsilar.
+- Karsilama, Diva konusurken en fazla 20 saniye kuyrukta bekleyebilir.
+- Bilinen 26+ izleyicili yayinlarda karsilama yapmaz.
+- Sakin yayinlarda ayni hesabi tekrar tekrar karsilamaz.
+- /api/status JSON yanitinda join_events_seen, greetings_sent, welcome_last_skip alanlari eklendi (DIVA_PIN gerekir).
 
-NASIL ÇALIŞIR?
-- Yaklaşık 35 saniye sessizlikte Diva kendiliğinden Groq'tan bir cümle ister.
-- İki otomatik Groq isteği arasında en az 97 saniye vardır.
-- Kısa cümleleri birbiriyle aynı olmayan sohbet konularından seçer.
-- Yeni yorum, hediye veya hoş geldin mesajı önceliklidir.
-- Oto sohbet kapanırsa bekleyen otomatik cevap konuşulmaz.
-- Groq servisi kapalıysa, anahtar/PIN yoksa, kota dolarsa hazır cümle kullanır.
-- Sunucuda otosohbete en çok 220 Groq isteği/gün ayrılır; yorum ve
-  hediye cevaplarının kalan ücretsiz kota hakkı korunur.
-
-NOTLAR
-- Ayrı bir API anahtarı gerekmiyor. Var olan GROQ_API_KEY kullanılır.
-- Render/TikTok/Euler Stream bağlantı limiti üzerinde bir değişiklik yok.
-- Sesin mobil Chrome'da otomatik başlaması için ilk kullanıcı dokunuşu
-  gerekebilir. Chrome arka plana atılınca zamanlayıcılar duraklayabilir.
-- Testler: sunucu açılışı, tarayıcıda Groq yanıtı, yorum geldiğinde iptal,
-  düğmeyle kapatma, otosohbet günlük kotası, PIN güvenliği.
-- Gerçek Groq ve TikTok'a bağlanarak canlı yayın testi yapılmadı.
+HATIRLATMA: TikTok her katilan kisinin join bildirimini gondermeyebilir; garanti degildir.
+TikTok baglantisi, Euler Stream, Groq, Emel Neural ve mimikler degismemistir.
