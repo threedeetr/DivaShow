@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import traceback
 import hmac
 import secrets
@@ -30,6 +31,41 @@ APP_PIN = os.environ.get("DIVA_PIN", "").strip()
 USERNAME_RE = re.compile(r"^@?[a-zA-Z0-9._]{2,30}$")
 
 app = FastAPI(title="Diva CANLI bridge", version="1.0")
+
+# Render's existing Uvicorn error logger is already wired to stdout/stderr.
+# Never log usernames, raw exception text, tokens, cookies, URLs or passwords.
+LIVE_LOG = logging.getLogger("uvicorn.error")
+LIVE_LOG_PREFIX = "[DIVA-LIVE]"
+
+
+def live_diagnostic(event: str, attempt: int, **details: object) -> None:
+    """A small, strictly allowlisted connection log for Render."""
+    allowed_keys = {"stage", "source", "code", "exception", "frames", "elapsed_ms", "signing_key"}
+    fields = []
+    for key, value in details.items():
+        if key not in allowed_keys:
+            continue
+        # Only static category strings, numbers and *sanitized* function names are allowed.
+        safe = re.sub(r"[^a-zA-Z0-9_.,:>=-]", "_", str(value))[:140]
+        fields.append(f"{key}={safe}")
+    safe_event = re.sub(r"[^a-zA-Z0-9_]", "", event)[:45]
+    LIVE_LOG.info("%s event=%s attempt=%d %s", LIVE_LOG_PREFIX, safe_event,
+                  attempt, " ".join(fields))
+
+
+def upstream_trace_hint(exc: Exception) -> str:
+    """Return only third-party Python module and function *names*; no paths/arguments."""
+    marks = []
+    for frame in traceback.extract_tb(exc.__traceback__):
+        filename = frame.filename.replace("\\", "/").lower()
+        if not any(part in filename for part in ("tiktoklive", "eulerapisdk", "euler_stream")):
+            continue
+        module = Path(filename).stem
+        func = frame.name
+        if re.fullmatch(r"[a-zA-Z0-9_]{1,35}", module) and re.fullmatch(r"[a-zA-Z0-9_]{1,35}", func):
+            marks.append(module + "." + func)
+    return ">".join(marks[-3:]) if marks else "unknown"
+
 
 feed: deque[dict] = deque(maxlen=400)
 sequence = 0
@@ -214,12 +250,15 @@ def welcome_name(user: object) -> str:
 
 async def live_worker(name: str, my_generation: int) -> None:
     global client, rate_limit_retry_at
+    started = time.monotonic()
+    live_diagnostic("worker_started", my_generation, stage="import_library")
     try:
         from TikTokLive import TikTokLiveClient
         from TikTokLive.events import CommentEvent, ConnectEvent, DisconnectEvent, GiftEvent, JoinEvent, RoomUserSeqEvent
 
         live = TikTokLiveClient(unique_id=name)
         client = live
+        live_diagnostic("client_created", my_generation, stage="register_events")
 
         # Per-LIVE welcome controls. Never confuse cumulative joins with current viewers.
         welcome = {"viewers": None, "viewer_at": 0.0, "last_at": 0.0, "started": time.monotonic()}
@@ -233,12 +272,16 @@ async def live_worker(name: str, my_generation: int) -> None:
         async def on_connect(_event: object) -> None:
             if my_generation == generation:
                 state.update(phase="connected", connected=True, error="", error_code="", error_source="")
+                live_diagnostic("socket_connected", my_generation, stage="tiktok_live",
+                                elapsed_ms=int((time.monotonic()-started)*1000))
                 add_event("system", text=f"@{name} yayınına bağlantı kuruldu.")
 
         @live.on(DisconnectEvent)
         async def on_disconnect(_event: object) -> None:
             if my_generation == generation:
                 state.update(phase="disconnected", connected=False)
+                live_diagnostic("socket_disconnected", my_generation, stage="tiktok_live",
+                                elapsed_ms=int((time.monotonic()-started)*1000))
                 add_event("system", text="TikTok bağlantısı kesildi.")
 
         @live.on(CommentEvent)
@@ -351,11 +394,16 @@ async def live_worker(name: str, my_generation: int) -> None:
                 diamonds=diamonds,
             )
 
-        # This blocks for the duration of the LIVE connection.
+        # This blocks for the duration of the LIVE connection. Reaching this log
+        # does NOT prove room info or signing succeeded; those happen inside TikTokLive.
+        live_diagnostic("connect_started", my_generation, stage="external_tiktoklive_connect")
         await live.connect()
+        live_diagnostic("connect_returned", my_generation, stage="external_tiktoklive_connect",
+                        elapsed_ms=int((time.monotonic()-started)*1000))
         if my_generation == generation:
             state.update(phase="disconnected", connected=False)
     except asyncio.CancelledError:
+        live_diagnostic("worker_cancelled", my_generation, stage="local_disconnect")
         raise
     except Exception as exc:
         if my_generation == generation:
@@ -366,14 +414,25 @@ async def live_worker(name: str, my_generation: int) -> None:
                 message = ("TikTok bağlantı limiti doldu. "
                            f"Yaklaşık {(remaining + 59) // 60} dakika sonra yeniden dene.")
                 state.update(phase="cooldown", connected=False, error=message)
+                error_code, error_source = "sign_rate_limit", "imzalama servisi"
             else:
                 error_code, error_source, message = identify_connection_failure(exc)
                 state.update(phase="error", connected=False, error=message,
                              error_code=error_code, error_source=error_source)
+            live_diagnostic("connect_failed", my_generation,
+                            code=error_code,
+                            source={"imzalama servisi":"signing_service",
+                                    "TikTok yayın bilgisi":"room_info",
+                                    "bağlantı verisi":"upstream_data"}.get(error_source, "unknown"),
+                            exception=re.sub(r"[^A-Za-z0-9_]", "", type(exc).__name__)[:55],
+                            frames=upstream_trace_hint(exc),
+                            elapsed_ms=int((time.monotonic()-started)*1000))
             add_event("system", text="Bağlantı kurulamadı: " + message)
     finally:
         if my_generation == generation:
             client = None
+        live_diagnostic("worker_finished", my_generation,
+                        elapsed_ms=int((time.monotonic()-started)*1000))
 
 
 class ConnectBody(BaseModel):
@@ -712,6 +771,8 @@ async def api_connect(body: ConnectBody, x_diva_pin: str | None = Header(None)):
             runner.cancel()
         client = None
         last_connect_attempt_at = time.time()
+        live_diagnostic("connect_accepted", generation, stage="waiting_for_live_worker",
+                        signing_key="configured" if os.environ.get("SIGN_API_KEY", "").strip() else "not_configured")
         state.update(phase="connecting", username=name, connected=False, error="",
                      error_code="", error_source="", viewer_count=None)
         last_event_id = sequence  # never replay old LIVE comments after reconnect
@@ -725,6 +786,7 @@ async def api_disconnect(x_diva_pin: str | None = Header(None)):
     global runner, client, generation
     authorize(x_diva_pin)
     async with connect_lock:
+        live_diagnostic("disconnect_requested", generation, stage="manual_disconnect")
         generation += 1
         if client is not None:
             try:

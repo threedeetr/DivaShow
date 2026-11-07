@@ -1,24 +1,46 @@
-DIVA SHOW — TIKTOK BAĞLANTI HATASI (JSONDecodeError) AÇIKLAMA/GÜNCELLEME
+DIVA SHOW - TIKTOK CANLI BAGLANTI TESHIS LOGU
+===========================================
 
-Yüklenecek TEK dosya: app.py
+Bu guncelleme TikTok/Euler servislerini degistirmez ve gercek bir baglantiyi
+kendiliginden onarmaz. Render loglarina guvenli baglanti teshis satirlari ekler.
+Mevcut uyelik anahtarlari, bekleme sureleri, mimikler, AI, yorumlar,
+muzik ve hedef ayarlari aynen korunur.
 
-1. ZIP'i aç. app.py dosyasını GitHub'daki threedeetr/DivaShow deposunun ana dizinindeki app.py ile değiştir.
-2. Commit changes yap. Render'ın yeniden Live olmasını bekle ve sayfayı yenile.
-3. DIVA_PIN (site yönetici şifresi) ve TikTok yayın kullanıcı adını gir.
-4. TikTok hesabı GERÇEKTEN canlı yayındayken "Canlıya bağlan" düğmesine BİR kez bas.
-5. 45 saniyelik koruma süresi dolmadan tekrar tekrar bağlanma denemesi yapma.
-6. Sorun sürerse Render > Environment bölümünde SIGN_API_KEY'in varlığını (değerini paylaşmadan) kontrol et; Euler Stream hesabının/servisinin durumunu incele. Sonra Render > Logs altında bağlantı zamanındaki hata türünü kontrol et.
+KURULUM (TELEFONDAN)
+1. ZIP icinden yalnizca app.py dosyasini cikar.
+2. https://github.com/threedeetr/DivaShow deposunu ac.
+3. Kok dizindeki app.py dosyasini bu dosyayla degistir ve Commit changes yap.
+4. Render servisin tekrar Live olmasini bekle.
+5. TikTok canlini ac. Diva sitesinde yonetici PIN'ini gir.
+6. 45 saniyelik bekleme bitince Canliya baglan dugmesine bir kez bas.
+7. https://dashboard.render.com/ > diva-canli > Logs bolumune git.
+8. Arama kutusuna DIVA-LIVE yaz. Bu satirlarin ekran goruntusunu paylas.
 
-DÜZELTİLENLER
-- TikTokLive içinde boş/geçersiz JSON yakalanırsa anlaşılır Türkçe uyarı gösterir.
-- Kullanıcı çevrimdışı, yayın bilgisi yok, imzalama servisi cevap vermiyor gibi hata sınıfları ayrı bildirilir.
-- PIN yanlışsa mevcut 401 koruması devam eder.
-- Sorunun bir önceki bağlantı girişiminden kalabileceğini "Son bağlantı hatası" olarak gösterir.
-- Render'da SIGN_API_KEY hiç tanımlı değilse bunun yalnızca varlığını bildirir; anahtarın kendisini göstermez.
-- İmzalama servisine gereksiz otomatik tekrar deneme eklenmedi: mevcut istek sınırı korundu.
+ORNEK KAYITLAR (SIMULASYON)
+[DIVA-LIVE] event=connect_accepted attempt=1 stage=waiting_for_live_worker signing_key=configured
+[DIVA-LIVE] event=worker_started attempt=1 stage=import_library
+[DIVA-LIVE] event=client_created attempt=1 stage=register_events
+[DIVA-LIVE] event=connect_started attempt=1 stage=external_tiktoklive_connect
+[DIVA-LIVE] event=connect_failed attempt=1 code=bad_upstream_response source=room_info exception=JSONDecodeError frames=web_routes.fetch_room_id elapsed_ms=1200
+[DIVA-LIVE] event=worker_finished attempt=1 elapsed_ms=1200
 
-ÖNEMLİ: Bu güncelleme dış kaynaktaki bozuk cevabı sihirli şekilde onarmaz. Sorun TikTok/Euler Stream tarafındaysa düzeltme sağlayıcıya bağlıdır. Bu sürüm gerçek nedeni ayırt etmeyi ve anlaşılır hata mesajları görmeyi sağlar.
+ALANLARIN ANLAMI
+- connect_accepted: uygulama baglanti komutunu kabul etti, baglanti henuz basarili degil.
+- connect_started: TikTokLive kutuphanesinin connect() islemine girildi.
+  Bu tek basina TikTok veya imzalama servisine basariyla ulasildigini gostermez.
+- socket_connected: TikTok canli soketine baglanti kuruldu.
+- connect_failed: dis sistemden/kutuphaneden hata alindi.
+- source=room_info: hata izi TikTok yayin bilgisine isaret ediyor.
+- source=signing_service: hata izi imzalama servisine isaret ediyor.
+- source=upstream_data: somut dis asama belirlenemedi.
+- frames=...: yalnizca paket/modul/fonksiyon isimleri. "unknown" olabilir.
+- code=sign_rate_limit: imzalama istek limiti; belirtilen sureyi bekle.
+- elapsed_ms: baslangictan itibaren gecen sure, milisaniye.
 
-KORUNANLAR: Groq, Emel Neural, yorum filtreleri, müzik, mimikler, hediye hedefi ve diğer arayüz davranışları. index.html değişmez.
+GUVENLIK
+Loglara bilerek PIN, TikTok kullanici adi, SIGN_API_KEY/GROQ_API_KEY,
+imzali URL, cerez, API yanit govdesi veya tam hata metni yazdirilmaz.
+Baska Render loglarinda gizli veriler gorunurse ekran goruntusunu paylasmadan
+once karart. Loglara sadece [DIVA-LIVE] ile baslayan satirlari sec.
 
-TEST: Sunucu açılışı, PIN doğrulama, boş JSON, çevrimdışı yayın, 429 limit, tarayıcıdaki JS sözdizimi.
+Not: Bu testler gercek TikTok'a baglanmadan yapay hata uretimiyle calistirildi.
