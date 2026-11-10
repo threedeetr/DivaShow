@@ -25,6 +25,7 @@ from diva_voice import SpeechRequest, synthesize_emel, enhanced_page
 from diva_ai import AiReplyRequest, generate_ai_reply, enhanced_ai_page, usage_snapshot, diva_echo_is_unsafe
 from diva_dashboard import enhanced_dashboard_page
 from diva_music import enhanced_music_page
+from diva_broadcast_control import enhanced_creator_control_page
 
 ROOT = Path(__file__).resolve().parent
 APP_PIN = os.environ.get("DIVA_PIN", "").strip()
@@ -740,7 +741,7 @@ if(item.type==='moderator_command'){
 @app.get("/")
 def home():
     html = enhanced_ai_page(enhanced_page(str(ROOT / "index.html")))
-    return HTMLResponse(enhanced_music_page(enhanced_comment_page(enhanced_dashboard_page(enhanced_show_page(enhanced_connection_page(html))))), headers={"Cache-Control": "no-store"})
+    return HTMLResponse(enhanced_creator_control_page(enhanced_music_page(enhanced_comment_page(enhanced_dashboard_page(enhanced_show_page(enhanced_connection_page(html)))))), headers={"Cache-Control": "no-store"})
 
 
 @app.post("/api/tts")
