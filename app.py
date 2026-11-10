@@ -30,6 +30,16 @@ ROOT = Path(__file__).resolve().parent
 APP_PIN = os.environ.get("DIVA_PIN", "").strip()
 USERNAME_RE = re.compile(r"^@?[a-zA-Z0-9._]{2,30}$")
 
+# TikTok unique_id is the only moderator identity, never a nickname or user text.
+# Optional future moderators: DIVA_MODERATORS=threedeetr,another_real_username
+MODERATOR_USERS = frozenset(
+    name for part in os.environ.get("DIVA_MODERATORS", "threedeetr").split(",")
+    if (name := part.strip().casefold().lstrip("@")) and re.fullmatch(r"[a-z0-9._]{2,30}", name)
+)
+MODERATOR_COOLDOWN_SECONDS = 4.0
+moderator_last_spoken: dict[str, float] = {}
+
+
 app = FastAPI(title="Diva CANLI bridge", version="1.0")
 
 # Render's existing Uvicorn error logger is already wired to stdout/stderr.
@@ -233,6 +243,28 @@ def add_event(event_type: str, **fields: object) -> dict:
     return event
 
 
+def moderator_announcement(comment: str) -> str | None:
+    """Return safe text after a leading slash, or None when it must not be voiced."""
+    raw = str(comment or "").strip()
+    if not raw.startswith("/"):
+        return None
+    # Voice command only. Never treat slash text as a Python/shell/moderation action.
+    phrase = re.sub(r"\s+", " ", raw[1:]).strip()
+    if not (2 <= len(phrase) <= 190) or not any(ch.isalpha() for ch in phrase):
+        return None
+    if "@" in phrase or is_blocked_comment(phrase):
+        return None
+    # Reuse the existing safe-repeat policy (harassment, gift requests, personal data).
+    if diva_echo_is_unsafe("Şunu de: " + phrase):
+        return None
+    return phrase
+
+
+def moderator_unique_id(user: object) -> str:
+    """Use TikTok's account identifier only: profile nicknames are spoofable."""
+    return str(getattr(user, "unique_id", "") or "").strip().lstrip("@").casefold()
+
+
 def username_of(user: object) -> str:
     return clean_text(getattr(user, "unique_id", "") or getattr(user, "nickname", "") or "Izleyici", 34)
 
@@ -289,8 +321,23 @@ async def live_worker(name: str, my_generation: int) -> None:
             if my_generation != generation:
                 return
             message = clean_text(getattr(event, "comment", ""), 240)
-            if message and not is_blocked_comment(message):
-                user = getattr(event, "user", None)
+            if not message:
+                return
+            user = getattr(event, "user", None)
+            if message.startswith("/"):
+                uid = moderator_unique_id(user)
+                if uid not in MODERATOR_USERS:
+                    return  # Other viewers cannot execute or voice commands.
+                announcement = moderator_announcement(message)
+                if not announcement:
+                    return
+                now = time.monotonic()
+                if now - moderator_last_spoken.get(uid, -1e9) < MODERATOR_COOLDOWN_SECONDS:
+                    return
+                moderator_last_spoken[uid] = now
+                add_event("moderator_command", username=uid, text=announcement)
+                return
+            if not is_blocked_comment(message):
                 add_event("comment", username=username_of(user), display_name=welcome_name(user), text=message)
 
         @live.on(RoomUserSeqEvent)
@@ -637,7 +684,18 @@ def enhanced_comment_page(html: str) -> str:
             raise RuntimeError('Diva comment patch anchor missing or duplicated: '+old[:80])
         html=html.replace(old,new,1)
 
-    replace_once("function bridgeHandleEvent(item){", CHAT_JS + "\nfunction bridgeHandleEvent(item){")
+    moderator_js = r"""
+// Privileged commands already authenticated by the server against TikTok unique_id.
+if(item.type==='moderator_command'){
+  const announcement=String(item.text||'').slice(0,190).trim();
+  if(!announcement)return;
+  addChat('🛡️ Moderatör','/'+announcement);
+  bridgeOffer({text:announcement,mood:'normal',kind:'moderator',username:String(item.username||'Moderatör')},1);
+  bridge.nextAt=0; // moderator speaks next, without replacing ongoing speech
+  return;
+}
+"""
+    replace_once("function bridgeHandleEvent(item){", CHAT_JS + "\nfunction bridgeHandleEvent(item){" + moderator_js)
     # Prefer the public TikTok display name for explicit "say my name" requests,
     # while retaining unique_id for duplicate/cooldown tracking.
     replace_once("const user=String(item.username||'İzleyici').slice(0,34);",
@@ -646,6 +704,9 @@ def enhanced_comment_page(html: str) -> str:
                  "bridgeOffer({text:reply,mood,source:msg,username:user,displayName:spokenName,kind:'comment'});")
     replace_once(": await divaAskAIReaction(item.source,item.username,item.kind||'comment',item.text,item.mood||'normal');",
                  ": await divaAskAIReaction(item.source,item.username,item.kind||'comment',item.text,item.mood||'normal',item.displayName||'');")
+    # Do not send privileged voice commands to Groq; don't apply comment filters.
+    replace_once("const reaction=(item.kind==='welcome'||item.kind==='meme')",
+                 "const reaction=(item.kind==='welcome'||item.kind==='meme'||item.kind==='moderator')")
     # Display every comment in chat, but decide whether to speak BEFORE using
     # the existing viewer cooldown, Groq, and special meme/rocket actions.
     replace_once("    addChat(user,msg);\n    if(divaIsAydinlatMeme(msg))divaLaunchLightRocket();",
