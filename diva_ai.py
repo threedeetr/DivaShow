@@ -9,6 +9,7 @@ import asyncio
 import json
 from collections import defaultdict, deque
 from datetime import datetime, timezone
+from difflib import SequenceMatcher
 import os
 import unicodedata
 import re
@@ -54,7 +55,53 @@ successful_replies = 0
 successful_idle_replies = 0
 idle_last_request_at = 0.0
 usage_timestamps: deque[float] = deque(maxlen=100)
-history: dict[str, deque[tuple[str, str]]] = defaultdict(lambda: deque(maxlen=3))
+# Only in-memory context: six actual question/reply pairs per TikTok account.
+# Never stored on disk and expires after 45 minutes without a reply.
+MEMORY_TTL_SECONDS = 45 * 60
+RECENT_TTL_SECONDS = 20 * 60
+history: dict[str, deque[tuple[str, str]]] = defaultdict(lambda: deque(maxlen=6))
+history_activity: dict[str, float] = {}
+recent_replies: deque[tuple[float, str]] = deque(maxlen=18)
+
+
+def _normalize_reply(text: str) -> str:
+    """Compare joke content despite punctuation and small Turkish interjections."""
+    normalized = culture_normalize(text)
+    return re.sub(r"^(?:(?:ayol|askim|kiz|lan|ya|ayy|ahah|haha|off)\s+){1,3}", "", normalized)
+
+
+def _same_joke(first: str, second: str) -> bool:
+    a, b = _normalize_reply(first), _normalize_reply(second)
+    if not a or not b or min(len(a), len(b)) < 23:
+        return False
+    if a == b:
+        return True
+    # Avoid suppressing short, distinct conversational answers.
+    ratio = SequenceMatcher(None, a, b).ratio()
+    if ratio >= 0.83:
+        return True
+    sa, sb = set(a.split()), set(b.split())
+    if len(sa) >= 5 and len(sb) >= 5 and len(sa & sb) / len(sa | sb) >= .76:
+        return True
+    if len(a) >= 34 and len(b) >= 34 and (a in b or b in a):
+        return True
+    return False
+
+
+def _memory_context(key: str, now: float) -> tuple[list[tuple[str, str]], list[str]]:
+    """Bound the number, age, and size of stored conversations."""
+    for user, when in list(history_activity.items()):
+        if now - when > MEMORY_TTL_SECONDS:
+            history_activity.pop(user, None)
+            history.pop(user, None)
+    while len(history_activity) > 190:
+        oldest = min(history_activity, key=history_activity.get)
+        history_activity.pop(oldest, None)
+        history.pop(oldest, None)
+    while recent_replies and now - recent_replies[0][0] > RECENT_TTL_SECONDS:
+        recent_replies.popleft()
+    return list(history.get(key, ())), [x for _, x in list(recent_replies)[-10:]]
+
 
 class AiReplyRequest(BaseModel):
     username: str = Field(default="İzleyici", max_length=40)
@@ -340,8 +387,27 @@ async def generate_ai_reply(body: AiReplyRequest) -> dict[str, str]:
     if needs_culture_context(msg):
         prompt += "\nKÜLTÜREL BAĞLAM (BAĞLAMSIZ TEKRARLAMA): " + TURKISH_BUG_CULTURE
     messages: list[dict[str,str]] = [{"role":"system","content":prompt}]
-    for incoming, outgoing in list(history[key]):
-        messages.extend([{"role":"user","content":incoming},{"role":"assistant","content":outgoing}])
+    # These are conversations with this viewer, NOT with everybody in chat.
+    # Short system context discourages imitating previous answers word-for-word.
+    now = time.monotonic()
+    async with AI_LOCK:
+        remembered, recent_global = _memory_context(key, now)
+    if body.kind == "comment" and remembered:
+        transcript = "\n".join(
+            f"İzleyicinin önceki mesajı: {incoming[:160]}\nDiva'nın o zamanki cevabı: {outgoing[:150]}"
+            for incoming, outgoing in remembered
+        )
+        messages.append({"role": "system", "content":
+            "BU İZLEYİCİYLE KISA SÜRELİ SOHBET HAFIZASI (sadece aynı kullanıcı):\n" + transcript +
+            "\nŞimdiki yorumu önceki mesajların devamı olabilir. 'Az önce', 'onu', "
+            "'neden' gibi göndermeleri bağlama göre anla. Yalnızca gerçekten bağlantı varsa "
+            "öncekinden bahset; önceki Diva cevabını tekrarlama, yeni soruyu cevapla."})
+    if recent_global:
+        messages.append({"role": "system", "content":
+            "DİVA'NIN SON YANITLARI (farklı izleyicilere de olabilir, bunları yeni kişiye atfetme):\n" +
+            "\n".join("- " + value[:145] for value in recent_global[-8:]) +
+            "\nBu sözleri, güzellik/anten/taç esprileri dahil, yeniden kullanma; "
+            "farklı ve konuşmanın konusuna doğrudan uyan doğal bir cevap ver."})
     if body.kind == "gift":
         task = f"{name} şu hediyeyi gönderdi: {msg}. Hediyeye teşekkür eden özgün ve komik kısa bir tepki ver."
     elif body.kind == "idle":
@@ -354,46 +420,71 @@ async def generate_ai_reply(body: AiReplyRequest) -> dict[str, str]:
     messages.append({"role":"user", "content":task})
 
     try:
-        async with AI_SEMAPHORE:
-            async with httpx.AsyncClient(timeout=httpx.Timeout(12,connect=3)) as client:
-                resp = await client.post(API_URL, headers={"Authorization":"Bearer "+api_key}, json={
-                    "model":AI_MODEL,
-                    "messages":messages,
-                    "response_format": EMOTION_FORMAT if AI_MODEL in ("openai/gpt-oss-20b", "openai/gpt-oss-120b") else {"type":"json_object"},
-                    "temperature":0.85,
-                    "max_completion_tokens":320,
-                    "reasoning_effort":"low",
-                    "include_reasoning":False,
-                    "stream":False,
-                })
-        if resp.status_code == 429:
-            raise HTTPException(status_code=429, detail="Ücretsiz Groq kotası doldu; hazır espriler devam edebilir.")
-        if resp.status_code >= 400:
-            raise HTTPException(status_code=503, detail=f"Groq HTTP {resp.status_code} hatası: model/istek ayarını veya servisi kontrol et.")
-        payload=resp.json()
-        content = ((payload.get("choices") or [{}])[0].get("message") or {}).get("content") or ""
-        # JSON is model output; validate both fields before handing the emotion to the browser.
-        reaction = json.loads(content)
-        if not isinstance(reaction, dict):
-            raise ValueError("Groq did not return an object")
-        reply = _clean(reaction.get("reply") if isinstance(reaction.get("reply"), str) else "", 300)
-        reply=re.sub(r"https?://\S+|www\.\S+", "", reply).strip()
-        reply=re.sub(r"[*#`]+|[\[\]{}]", "", reply).strip(" '\"\n")
-        reply = re.sub(r"\b[Bb]en\s+[Ss]en\s+Diva\b", "Ben Diva", reply)
-        if not reply:
-            raise HTTPException(status_code=503, detail="Yapay zekâ boş yanıt verdi; hazır esprilere geçiliyor.")
-        reply=reply[:220].rsplit(" ",1)[0] if len(reply)>220 else reply
-        mood = reaction.get("mood")
-        if mood not in EMOTIONS:
-            mood = "normal"
-        history[key].append((msg, reply))
-        if len(history)>200: history.clear()  # lightweight memory, no persistent viewer database
-        async with AI_LOCK:
-            if usage_day == datetime.now(timezone.utc).strftime("%Y-%m-%d"):
-                successful_replies += 1
-                if body.kind == "idle":
-                    successful_idle_replies += 1
-        return {"reply":reply, "mood":mood, "engine":"groq", "model":AI_MODEL}
+        for attempt in range(2):
+            # A retry is only used when the model produced essentially the same joke.
+            # It counts as another normal Groq request and respects the free quota.
+            async with AI_SEMAPHORE:
+                async with httpx.AsyncClient(timeout=httpx.Timeout(12 if attempt == 0 else 8,connect=3)) as client:
+                    resp = await client.post(API_URL, headers={"Authorization":"Bearer "+api_key}, json={
+                        "model":AI_MODEL,
+                        "messages":messages,
+                        "response_format": EMOTION_FORMAT if AI_MODEL in ("openai/gpt-oss-20b", "openai/gpt-oss-120b") else {"type":"json_object"},
+                        "temperature":0.92 if attempt else 0.85,
+                        "max_completion_tokens":320,
+                        "reasoning_effort":"low",
+                        "include_reasoning":False,
+                        "stream":False,
+                    })
+            if resp.status_code == 429:
+                raise HTTPException(status_code=429, detail="Ücretsiz Groq kotası doldu; hazır espriler devam edebilir.")
+            if resp.status_code >= 400:
+                raise HTTPException(status_code=503, detail=f"Groq HTTP {resp.status_code} hatası: model/istek ayarını veya servisi kontrol et.")
+            payload=resp.json()
+            content = ((payload.get("choices") or [{}])[0].get("message") or {}).get("content") or ""
+            reaction=json.loads(content)
+            if not isinstance(reaction, dict):
+                raise ValueError("Groq did not return an object")
+            reply=_clean(reaction.get("reply") if isinstance(reaction.get("reply"), str) else "", 300)
+            reply=re.sub(r"https?://\S+|www\.\S+", "", reply).strip()
+            reply=re.sub(r"[*#`]+|[\[\]{}]", "", reply).strip(" '\"\n")
+            reply=re.sub(r"\b[Bb]en\s+[Ss]en\s+Diva\b", "Ben Diva", reply)
+            if not reply:
+                raise HTTPException(status_code=503, detail="Yapay zekâ boş yanıt verdi.")
+            reply=reply[:220].rsplit(" ",1)[0] if len(reply)>220 else reply
+            mood=reaction.get("mood")
+            if mood not in EMOTIONS:
+                mood="normal"
+            async with AI_LOCK:
+                now = time.monotonic()
+                previous_user, previous_global = _memory_context(key, now)
+                repeated = any(_same_joke(reply, old) for old in previous_global[-12:])
+                if body.kind == "comment":
+                    repeated = repeated or any(_same_joke(reply, old) for _, old in previous_user)
+            if repeated:
+                if attempt == 0 and body.kind == "comment":
+                    try:
+                        await _reserve_quota("comment")
+                    except HTTPException:
+                        return {"reply":"", "mood":"normal", "engine":"repeat_suppressed"}
+                    messages.append({"role":"system","content":
+                        "İLK CEVAP TASLAĞIN çok yakın bir tekrar olduğu için reddedildi: " + reply[:180] +
+                        ". Bunu tekrar etme, aynı tema/güzellik şakasından kaçın. "
+                        "İzleyicinin en son mesajını başka bir açıdan yanıtla, cümleleri değiştir. "
+                        "Aynı kelimeleri tekrar tekrar kullanma."})
+                    continue
+                return {"reply":"", "mood":"normal", "engine":"repeat_suppressed"}
+            async with AI_LOCK:
+                now = time.monotonic()
+                if body.kind == "comment":
+                    # Only answered real viewer comments enter that viewer's memory.
+                    history[key].append((msg, reply))
+                    history_activity[key] = now
+                recent_replies.append((now, reply))
+                if usage_day == datetime.now(timezone.utc).strftime("%Y-%m-%d"):
+                    successful_replies += 1
+                    if body.kind == "idle":
+                        successful_idle_replies += 1
+            return {"reply":reply, "mood":mood, "engine":"groq", "model":AI_MODEL}
     except HTTPException: raise
     except httpx.TimeoutException:
         raise HTTPException(status_code=504, detail=f"Groq {AI_MODEL} 12 saniyede yanıt vermedi (zaman aşımı).")
@@ -569,8 +660,12 @@ async function divaAskAIReaction(message,username,kind='comment',fallback='',fal
  try{
   const result=await bridgeRequest('/api/ai/reply','POST',{username:username||'İzleyici',message:String(message||'').slice(0,240),kind,spice:$('argo').value});
   const allowed=['normal','angry','surprised','wink','celebrate'];
-  if(typeof result.reply!=='string'||!result.reply.trim())throw new Error('Groq boş yanıt verdi');
   const engine=String(result.engine||'unknown');
+  if(engine==='repeat_suppressed'){
+    aiNote.textContent='♻️ Diva aynı espriyi tekrar etmedi; yeni yorum bekliyor.';
+    return {reply:'',mood:'normal',engine};
+  }
+  if(typeof result.reply!=='string'||!result.reply.trim())throw new Error('Groq boş yanıt verdi');
   aiNote.textContent=engine==='groq'?'✅ GROQ ÇALIŞIYOR: gerçek yapay zekâ cevabı alındı.':'ℹ️ Cevap kaynağı: '+engine+' (hazır özel kural).';
   return {reply:result.reply,mood:allowed.includes(result.mood)?result.mood:fallbackMood,engine,model:result.model||''};
  }catch(err){

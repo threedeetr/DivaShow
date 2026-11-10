@@ -654,7 +654,7 @@ def enhanced_comment_page(html: str) -> str:
     # Keep the client's API timeout longer than Groq's 12s server timeout; otherwise
     # a healthy response is aborted in Chrome even though the server is still running.
     replace_once("const timeout=setTimeout(()=>ctrl.abort(),9500);",
-                 "const timeout=setTimeout(()=>ctrl.abort(),path==='/api/ai/reply'?16000:9500);")
+                 "const timeout=setTimeout(()=>ctrl.abort(),path==='/api/ai/reply'?26000:9500);")
     # If the enabled AI failed, do not read the unrelated original generic phrase.
     replace_once("    const reply=reaction.reply;\n    item.mood=reaction.mood||item.mood||'normal';",
                  "    const reply=reaction.reply;\n    if(!reply||!String(reply).trim()){bridge.nextAt=Date.now()+1200;return;}\n    item.mood=reaction.mood||item.mood||'normal';")
